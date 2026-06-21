@@ -17,19 +17,32 @@ void usage(FILE *stream)
 
 void parse_options(int argc, char **argv, cmdline_opts *opts)
 {
+    // Just calling the program
+    if (argc < 2) {
+        opts->list_tasks = true;
+        da_append(&opts->filters, "");
+        return ;
+    }
+
+    char *program_name = shift(argv, argc);
+    UNUSED(program_name);
+
     while (argc) {
         char *flag = shift(argv, argc);
         if (strcmp(flag, "help") == 0) {
             opts->help = true;
-            break;
-        } else if (strcmp(flag, "ls") == 0) {
-            opts->list_tasks = true;
             break;
         } else if (strcmp(flag, "summary") == 0) {
             opts->summary = true;
             break;
         } else if (strcmp(flag, "create") == 0) {
             opts->create_task = shift(argv, argc);
+            break;
+        } else if (strcmp(flag, "ls") == 0) {
+            opts->list_tasks = true;
+            break;
+        } else if (strcmp(flag, "open") == 0) {
+            opts->open_task = shift(argv, argc);
             break;
         }
     }

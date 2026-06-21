@@ -1,7 +1,7 @@
 # Find cwd and search recursively from it the 'tasks/' directory.
 
-- STATUS: OPEN
-- PRIORITY: 1
+- STATUS: CLOSED
+- PRIORITY: 10
 - TAGS:
 
 Tasks directory should always be at the cwd. Aka, if at at a project's root, you should have:

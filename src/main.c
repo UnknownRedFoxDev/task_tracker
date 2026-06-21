@@ -3,38 +3,65 @@
 #include "../lib/task.h"
 #include "../lib/helper.h"
 
+const char *find_tasks_dir()
+{
+    const char *cwd = get_current_dir_temp();
+    File_Paths paths = {0};
+
+    if (!read_entire_dir(cwd, &paths)) return NULL;
+
+    da_foreach (const char *, path, &paths) {
+        if (strstr(*path, "tasks") != NULL) {
+            return temp_sprintf("./%s/", *path);
+        } else if (*path[0] != '.') { // Exclude '.', '..', '.git', etc
+            File_Paths childrens = {0};
+            if (!read_entire_dir(*path, &childrens)) return NULL;
+            da_foreach(const char *, sub_path, &childrens) {
+                if (strstr(*sub_path, "tasks") != NULL) {
+                    return temp_sprintf("./%s/%s/", *path, *sub_path);
+                }
+            }
+        }
+    }
+    return NULL;
+}
+
 int main(int argc, char **argv)
 {
     cmdline_opts opts = {0};
     tasks_t tasks = {0};
+    int result = 0;
     parse_options(argc, argv, &opts);
 
-    const char *tasks_folder = temp_sprintf("%s/tasks/", get_current_dir_temp());
-    // const char *tasks_folder = "./tasks/";
+    const char *tasks_folder = find_tasks_dir();
     minimal_log_level = ERROR;
     mkdir_if_not_exists(tasks_folder);
     minimal_log_level = INFO;
 
-    if (!parse_tasks(tasks_folder, &tasks)) return 1;
+
+    if (!parse_tasks(tasks_folder, &tasks)) return_defer(1);
 
     if (opts.list_tasks) {
         print_tasks(&tasks, &opts.filters);
     } else if (opts.create_task) {
-        if (!create_task(tasks_folder, opts.create_task)) return 1;
-        const char *editor = getenv("EDITOR");
-        minimal_log_level = ERROR;
-        Cmd cmd = {0};
-        if (editor != NULL) {
-            cmd_append(&cmd, editor, tasks.items[tasks.count-1].path);
-        } else { // default to vim
-            cmd_append(&cmd, "vim", tasks.items[tasks.count-1].path);
+        task_t task = create_task(tasks_folder, opts.create_task);
+        if (task.path != NULL) {
+            open_task(&task);
         }
-        if (!cmd_run(&cmd)) return 1;
-        minimal_log_level = INFO;
+        free_task(&task);
     } else if (opts.summary) {
         task_summary();
+    } else if (opts.open_task) {
+        task_t *task = find_task(&tasks, opts.open_task);
+        if (task) {
+            open_task(task);
+        } else {
+            nob_log(WARNING, "TASK(%s) was not found", opts.open_task);
+            return_defer(1);
+        }
     }
 
+defer:
     free_tasks(&tasks);
-    return 0;
+    return result;
 }

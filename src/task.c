@@ -7,13 +7,49 @@
 
 static Ht(const char*, int) __g_stats = { .hasheq = ht_cstr_hasheq };
 
+task_t *find_task(tasks_t *tasks, const char *uuid)
+{
+    task_t *result = NULL;
+    da_foreach (task_t, task, tasks) {
+        if (strcmp(task->uuid, uuid) == 0) {
+            result = task;
+            break;
+        }
+    }
+
+    return result;
+}
+
+void remove_task(tasks_t *tasks, const char *uuid)
+{
+    TODO("remove_task()");
+}
+
+bool close_task(task_t *task)
+{
+    TODO("close_task()");
+}
+
+bool open_task(task_t *task)
+{
+    Cmd cmd = {0};
+    bool result = true;
+    const char *editor = getenv("EDITOR");
+    if (editor != NULL) {
+        cmd_append(&cmd, editor);
+    } else {
+        cmd_append(&cmd, "vim");
+    }
+    cmd_append(&cmd, temp_sprintf("%s%s/TASK.md", task->path, task->uuid));
+    if (!cmd_run(&cmd)) result = false;
+
+    free(cmd.items);
+    return result;
+}
+
 void print_task(FILE *stream, task_t *task)
 {
-#if 0
     fprintf(stream, "%s%s/TASK.md%s:%s1%s: ", COLOR_RED, task->uuid, COLOR_RESET, COLOR_YELLOW, COLOR_RESET);
-    fprintf(stream, "%s./tasks/%s/TASK.md%s:%s1%s: ", COLOR_RED, task->uuid, COLOR_RESET, COLOR_YELLOW, COLOR_RESET);
-#endif
-    fprintf(stream, "%s%s%s/TASK.md%s:%s1%s: ", COLOR_RED, task->path, task->uuid, COLOR_RESET, COLOR_YELLOW, COLOR_RESET);
     fprintf(stream, "[PRIORITY: %-2d ", task->priority);
     if (task->tags.count) {
         fprintf(stream, ", TAGS: ");
@@ -149,11 +185,10 @@ void print_tasks(const tasks_t *tasks, Flag_List_Mut *filters)
 }
 
 
-bool create_task(const char *path, const char *task_name)
+task_t create_task(const char *path, const char *task_name)
 {
     String_Builder sb = {0};
-    bool result = true;
-    task_t task = {0};
+    task_t result = {0};
 
     sb_appendf(&sb, "# %s\n", task_name);
     sb_appendf(&sb, "\n");
@@ -166,9 +201,15 @@ bool create_task(const char *path, const char *task_name)
     const char *task_md = temp_sprintf("%s/TASK.md", task_path);
 
     minimal_log_level = ERROR;
-    if (!mkdir_if_not_exists(task_path)) return_defer(false);
+    if (!mkdir_if_not_exists(task_path)) goto defer;
     minimal_log_level = INFO;
-    if (!write_entire_file(task_md, sb.items, sb.count)) return_defer(false);
+    if (!write_entire_file(task_md, sb.items, sb.count)) goto defer;
+
+    result.name = strdup(task_name);
+    result.path = task_path;
+    result.uuid = dir_name;
+    result.priority = 1;
+    result.status = OPEN;
 
     nob_log(INFO, "Created task at: %s%s/TASK.md%s", COLOR_RED, task_path, COLOR_RESET);
 
