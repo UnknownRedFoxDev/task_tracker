@@ -108,12 +108,12 @@ void usage(FILE *stream)
     flag_print_options(stream);
 }
 
-void parse_flag(int argc, char **argv, bool *help, bool *rebuild, bool *run, bool *nobuild)
+void parse_flag(int argc, char **argv, bool *help, bool *rebuild, Flag_List *run, bool *nobuild)
 {
     flag_bool_var(&debug, "debug", false, "run in debug mode");
     flag_bool_var(help, "help", false, "Print this help");
     flag_bool_var(rebuild, "B", false, "Forces rebuilding the whole project");
-    flag_bool_var(run, "run", false, "run the program with args");
+    flag_list_var(run, "run", "run the program with args");
     flag_bool_var(nobuild, "nobuild", false, "run the program without recompiling");
 
     if (!flag_parse(argc, argv)) {
@@ -144,8 +144,9 @@ int main(int argc, char **argv)
 {
     GO_REBUILD_URSELF(argc, argv);
 
-    bool help, rebuild, run, nobuild;
+    bool help, rebuild, nobuild;
     bool needs_recompile = false;
+    Flag_List run = {0};
     int result = 0;
     submodules modules = {0};
 
@@ -160,8 +161,11 @@ int main(int argc, char **argv)
     if (!nobuild && !compile_submodules(&modules, &needs_recompile)) return_defer(1);
     if (!nobuild && !compile_main(&cmd, needs_recompile)) return_defer(1);
 
-    if (run) {
+    if (run.count) {
         cmd_append(&cmd, EXECUTABLE_PATH);
+        da_foreach (const char *, arg, &run) {
+            cmd_append(&cmd, *arg);
+        }
         if (!nob_cmd_run(&cmd)) return_defer(1);
     }
 
