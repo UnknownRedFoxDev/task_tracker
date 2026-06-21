@@ -17,6 +17,8 @@ task_t *find_task(tasks_t *tasks, const char *uuid)
         }
     }
 
+    if (result == NULL)
+        nob_log(WARNING, "TASK(%s) was not found", uuid);
     return result;
 }
 
@@ -61,6 +63,21 @@ void print_task(FILE *stream, task_t *task)
     fprintf(stream, "] %s\n", task->name);
 }
 
+struct keyval {
+    const char *key;
+    int value;
+};
+
+int cmp_keyval(const struct keyval *t1, const struct keyval *t2)
+{
+    return t2->value - t1->value;
+}
+
+int cmp_keyval_void(const void *t1, const void *t2)
+{
+    return cmp_keyval((const struct keyval *)t1, (const struct keyval *)t2);
+}
+
 void task_summary()
 {
     nob_log(INFO, "Summary of tasks:");
@@ -79,41 +96,52 @@ void task_summary()
             if (len > longest_tag_name) longest_tag_name = len;
         }
     }
+
+    struct keyval *ordered_list = calloc(__g_stats.count, sizeof(struct keyval));
+    size_t ite = 0;
     ht_foreach(value, &__g_stats) {
         const char *key = ht_key(&__g_stats, value);
-        if (strcmp(key, "OPEN") && strcmp(key, "CLOSED") && strcmp(key, "UNTAGGED") && strcmp(key, "TOTAL"))
-            printf("    %*s => %d\n", longest_tag_name, ht_key(&__g_stats, value), *value);
+        if (strcmp(key, "OPEN") && strcmp(key, "CLOSED") && strcmp(key, "UNTAGGED") && strcmp(key, "TOTAL")) {
+            ordered_list[ite].key = key;
+            ordered_list[ite++].value = *value;
+        }
+    }
+
+    qsort(ordered_list, __g_stats.count, sizeof(struct keyval), cmp_keyval_void);
+
+    for (size_t i = 0; i < ite; ++i) {
+        printf("    %*s => %d\n", longest_tag_name, ordered_list[i].key, ordered_list[i].value);
     }
 }
 
-struct foo{
+struct task_distance {
     size_t dist;
     task_t *task;
 };
 
-int cmp_tasks(const struct foo *t1, const struct foo *t2)
+int cmp_tasks(const struct task_distance *t1, const struct task_distance *t2)
 {
     return t2->task->priority - t1->task->priority;
 }
 
 int cmp_tasks_void(const void *t1, const void *t2)
 {
-    return cmp_tasks((const struct foo *)t1, (const struct foo *)t2);
+    return cmp_tasks((const struct task_distance *)t1, (const struct task_distance *)t2);
 }
 
-int cmp_tasks_dist(const struct foo *t1, const struct foo *t2)
+int cmp_tasks_dist(const struct task_distance *t1, const struct task_distance *t2)
 {
     return t2->dist - t1->dist;
 }
 
 int cmp_tasks_dist_void(const void *t1, const void *t2)
 {
-    return cmp_tasks_dist((const struct foo *)t1, (const struct foo *)t2);
+    return cmp_tasks_dist((const struct task_distance *)t1, (const struct task_distance *)t2);
 }
 
 void print_tasks(const tasks_t *tasks, Flag_List_Mut *filters)
 {
-    struct foo *distances = calloc(tasks->count, sizeof(struct foo));
+    struct task_distance *distances = calloc(tasks->count, sizeof(struct task_distance));
     bool exclude_opened_tasks = false;
     bool all = false;
 
@@ -168,9 +196,9 @@ void print_tasks(const tasks_t *tasks, Flag_List_Mut *filters)
     }
 
     if (strcmp(filters->items[0], "") == 0) {
-        qsort(distances, tasks->count, sizeof(struct foo), cmp_tasks_void);
+        qsort(distances, tasks->count, sizeof(struct task_distance), cmp_tasks_void);
     } else {
-        qsort(distances, tasks->count, sizeof(struct foo), cmp_tasks_dist_void);
+        qsort(distances, tasks->count, sizeof(struct task_distance), cmp_tasks_dist_void);
     }
 
     if (min_dist > DISTANCE_THRESHOLD)
