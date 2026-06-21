@@ -20,7 +20,7 @@ int main(int argc, char **argv)
     if (opts.list_tasks) {
         print_tasks(&tasks, &opts.filters);
     } else if (opts.create_task) {
-        if (!create_task(&tasks, tasks_folder, opts.create_task)) return 1;
+        if (!create_task(tasks_folder, opts.create_task)) return 1;
         const char *editor = getenv("EDITOR");
         minimal_log_level = ERROR;
         Cmd cmd = {0};

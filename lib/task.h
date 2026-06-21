@@ -3,6 +3,8 @@
 
 #include "commons.h"
 
+#define DISTANCE_THRESHOLD 5
+
 typedef enum {
     CLOSED,
     OPEN,
