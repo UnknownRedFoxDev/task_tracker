@@ -211,19 +211,37 @@ defer:
     return result;
 }
 
+void free_task(task_t *task)
+{
+    free(task->name);
+}
+
 bool parse_tasks(const char *path, tasks_t *tasks)
 {
-    TODO("parse_tasks");
+    File_Paths tasks_uuid = {0};
+    read_entire_dir(path, &tasks_uuid);
+
+    da_foreach (const char *, uuid, &tasks_uuid) {
+        if (!sv_starts_with(sv_from_cstr(*uuid), sv_from_cstr("."))) {
+            task_t task = {0};
+            parse_task(path, *uuid, &task);
+            print_task(stdout, &task);
+            free_task(&task);
+        }
+    }
+
+    return true;
 }
+
 
 int main(int argc, char **argv)
 {
     // cmdline_opts opts = {0};
-    // tasks_t tasks = {0};
+    tasks_t tasks = {0};
     // parse_options(argc, argv, &opts);
 
     const char *tasks_folder = "./tasks/";
-    create_task(tasks_folder, "this is a test task");
+    parse_tasks(tasks_folder, &tasks);
 
 #if 0
     if (!parse_tasks(tasks_folder, &tasks)) return 1;
