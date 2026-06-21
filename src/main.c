@@ -131,8 +131,16 @@ void task_summary()
 
 void print_task(FILE *stream, task_t *task)
 {
-    TODO("print_task");
-}
+    fprintf(stream, "%s./tasks/%s/TASK.md%s:%s1%s: ", COLOR_RED, task->uuid, COLOR_RESET, COLOR_YELLOW, COLOR_RESET);
+    fprintf(stream, "[PRIORITY: %-2d ", task->priority);
+    if (task->tags.count) {
+        fprintf(stream, ", TAGS: ");
+        for (size_t i = 0; i < task->tags.count; ++i) {
+            tag_t tag = task->tags.items[i];
+            fprintf(stream, "%s%s", tag, (i != task->tags.count - 1) ? "," : "");
+        }
+    }
+    fprintf(stream, "] %s\n", task->name);}
 
 void print_tasks(const tasks_t *tasks, Flag_List_Mut *filters)
 {
@@ -147,7 +155,40 @@ bool create_task(tasks_t *tasks, const char *path, const char *task_name)
 
 bool parse_task(const char *path, const char *uuid, task_t *task)
 {
-    TODO("parse_task");
+    String_Builder sb = {0};
+    String_View sv = {0};
+    bool result = true;
+
+    if (!read_entire_file(temp_sprintf("%s%s/TASK.md", path, uuid), &sb)) return_defer(false);
+    sv = sb_to_sv(sb);
+
+    task->path = path;
+    task->uuid = uuid;
+
+    // # Title
+    String_View name = sv_chop_by_delim(&sv, '\n');
+    sv_chop_by_delim(&name, ' ');
+    task->name = sv_to_cstr(name);
+
+    // Empty spacer
+    sv_chop_by_delim(&sv, '\n');
+
+    // - STATUS: CLOSED|OPEN
+    String_View status = sv_chop_by_delim(&sv, '\n');
+    sv_chop_prefix(&status, sv_from_cstr("- STATUS: "));
+    const char *cstatus = temp_sv_to_cstr(status);
+    task->status = cstr_to_task_status(cstatus);
+
+    // - PRIORITY: UINT
+    String_View priority = sv_chop_by_delim(&sv, '\n');
+    sv_chop_prefix(&priority, sv_from_cstr("- PRIORITY: "));
+    task->priority = temp_sv_to_int(priority);
+
+    // TODO: Tags parsing
+
+defer:
+    free(sb.items);
+    return result;
 }
 
 bool parse_tasks(const char *path, tasks_t *tasks)
@@ -162,7 +203,12 @@ int main(int argc, char **argv)
     parse_options(argc, argv, &opts);
 
     const char *tasks_folder = "./tasks/";
+    const char *task_id = "20260620-233713";
+    task_t task = {0};
+    if (!parse_task(tasks_folder, task_id, &task)) return 1;
+    print_task(stderr, &task);
 
+    return 0;
     if (!parse_tasks(tasks_folder, &tasks)) return 1;
 
     if (opts.list_tasks) {
