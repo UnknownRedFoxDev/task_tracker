@@ -7,19 +7,26 @@ void usage(FILE *stream)
     fprintf(stream, "OPTIONS:\n");
     fprintf(stream, "    help\n");
     fprintf(stream, "      Lists this help message\n");
+    fprintf(stream, "\n");
     fprintf(stream, "    ls\n");
     fprintf(stream, "      Lists all tasks. Filters as strings can be passed to filter tasks by name, status and tags\n");
+    fprintf(stream, "\n");
     fprintf(stream, "    summary\n");
     fprintf(stream, "      Summary of the different stats of all tasks available\n");
+    fprintf(stream, "\n");
     fprintf(stream, "    create <title>\n");
     fprintf(stream, "      Creates a task\n");
+    fprintf(stream, "\n");
     fprintf(stream, "    open <task-id>\n");
     fprintf(stream, "      Opens the task specified in your $EDITOR of choice. Default to vim if $EDITOR is not set.\n");
+    fprintf(stream, "\n");
     fprintf(stream, "    find <task-id>\n");
     fprintf(stream, "      Finds the task specified and prints it to the output.\n");
-    fprintf(stream, "    rm <task-id>[,<task-id>[,<task-id>[...] ] ]\n");
+    fprintf(stream, "\n");
+    fprintf(stream, "    rm <task-id> [<task-id> [<task-id> [...] ] ]\n");
     fprintf(stream, "      Deletes the task(s) specified.\n");
-    fprintf(stream, "    close <task-id>[,<task-id>[,<task-id>[...] ] ]\n");
+    fprintf(stream, "\n");
+    fprintf(stream, "    close <task-id> [<task-id> [<task-id> [...] ] ]\n");
     fprintf(stream, "      Closes the task(s) specified.\n");
 }
 

@@ -35,7 +35,14 @@ The default behavior is to list every opened task available in their order of pr
 ./tatr ls
 ```
 
-(I might add a way to reverse it: `./tatr ls-rev`)
+`./tatr help`: See help message for more informations.
+`./tatr open <task-id>`: Opens in your $EDITOR (or default to vim) the task.
+`./tatr close <task-id> [<task-id> [...] ]`: Closes the task(s).
+`./tatr find <task-id>`: Finds and prints the task for quick access.
+`./tatr create "<title>"`: Creates a new task and opens in your `$EDITOR`.
+`./tatr rm <task-id> [<task-id> [...] ]`: Deletes the task(s) specified.
+`./tatr summary`: See the different stats related to the task available.
+                  Total amount of task, those opened, closed or untagged, and then every tag with their count associated.
 
 
 #### Filtering by name
@@ -82,3 +89,4 @@ Filter by untagged tasks.
 ./tatr ls .UNTAGGED
 ```
 
+###
