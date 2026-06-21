@@ -7,6 +7,8 @@
 typedef struct {
     bool help;
     bool list_tasks;
+    bool remove_tasks;
+    bool close_tasks;
     bool summary;
     char *open_task;
     char *find_task;

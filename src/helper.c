@@ -13,6 +13,14 @@ void usage(FILE *stream)
     fprintf(stream, "      Summary of the different stats of all tasks available\n");
     fprintf(stream, "    create <title>\n");
     fprintf(stream, "      Creates a task\n");
+    fprintf(stream, "    open <task-id>\n");
+    fprintf(stream, "      Opens the task specified in your $EDITOR of choice. Default to vim if $EDITOR is not set.\n");
+    fprintf(stream, "    find <task-id>\n");
+    fprintf(stream, "      Finds the task specified and prints it to the output.\n");
+    fprintf(stream, "    rm <task-id>[,<task-id>[,<task-id>[...] ] ]\n");
+    fprintf(stream, "      Deletes the task(s) specified.\n");
+    fprintf(stream, "    close <task-id>[,<task-id>[,<task-id>[...] ] ]\n");
+    fprintf(stream, "      Closes the task(s) specified.\n");
 }
 
 void parse_options(int argc, char **argv, cmdline_opts *opts)
@@ -46,6 +54,12 @@ void parse_options(int argc, char **argv, cmdline_opts *opts)
             break;
         } else if (strcmp(flag, "find") == 0) {
             opts->find_task = shift(argv, argc);
+            break;
+        } else if (strcmp(flag, "rm") == 0) {
+            opts->remove_tasks = true;
+            break;
+        } else if (strcmp(flag, "close") == 0) {
+            opts->close_tasks = true;
             break;
         }
     }

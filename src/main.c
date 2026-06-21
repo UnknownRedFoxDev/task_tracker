@@ -59,7 +59,11 @@ int main(int argc, char **argv)
         task_t *task = find_task(&tasks, opts.find_task);
         if (!task) return_defer(1);
         print_task(stdout, task);
-    }
+    } else if (opts.remove_tasks) {
+        remove_tasks(&tasks, &opts.filters);
+    } /*else if (opts.close_tasks) {
+        close_tasks(&tasks, &opts.filters);
+    }*/
 
 defer:
     free_tasks(&tasks);

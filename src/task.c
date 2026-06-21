@@ -22,10 +22,26 @@ task_t *find_task(tasks_t *tasks, const char *uuid)
     return result;
 }
 
-void remove_task(tasks_t *tasks, const char *uuid)
+bool remove_task(task_t *task)
 {
-    TODO("remove_task()");
+    if (!delete_directory_recursively(temp_sprintf("%s%s", task->path, task->uuid))) return false;
+    return true;
 }
+
+bool remove_tasks(tasks_t *tasks, Flag_List_Mut *tasks_uuid)
+{
+    da_foreach (task_t, task, tasks) {
+        for (size_t i = 0; i < tasks_uuid->count; ++i) {
+            if (strcmp(task->uuid, tasks_uuid->items[i]) == 0) {
+                if (!remove_task(task)) return false;
+                da_remove_unordered(tasks_uuid, i);
+                break;
+            }
+        }
+    }
+    return true;
+}
+// bool close_tasks(tasks_t *tasks, Flag_List_Mut *tasks_uuid);
 
 bool close_task(task_t *task)
 {
