@@ -1,6 +1,6 @@
 # this task is important 3
 
 - STATUS: OPEN
-- PRIORITY: 1
+- PRIORITY: 100
 - TAGS: important
 

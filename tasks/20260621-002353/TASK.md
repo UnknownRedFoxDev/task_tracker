@@ -1,6 +1,6 @@
 # this task is important 2
 
-- STATUS: CLOSED
-- PRIORITY: 1
+- STATUS: OPEN
+- PRIORITY: 10
 - TAGS: important,urgent,asap
 

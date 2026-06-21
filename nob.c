@@ -122,11 +122,6 @@ void parse_flag(int argc, char **argv, bool *help, bool *rebuild, bool *run, boo
         exit(1);
     }
 
-    if (argc < 2) {
-        usage(stderr);
-        exit(1);
-    }
-
     if (*help) {
         usage(stderr);
         exit(0);
@@ -159,6 +154,7 @@ int main(int argc, char **argv)
 
     da_append(&modules, "task");
     da_append(&modules, "helper");
+    da_append(&modules, "levenshtein");
 
     if (rebuild) initialise_directories();
     if (!nobuild && !compile_submodules(&modules, &needs_recompile)) return_defer(1);
