@@ -1,6 +1,6 @@
 # this is a very important task
 
 - STATUS: CLOSED
-- PRIORITY: 10
+- PRIORITY: 1
 - TAGS: asap
 

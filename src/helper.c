@@ -94,4 +94,3 @@ const char *task_status_to_cstr(task_status status)
     }
     UNREACHABLE("task_status");
 }
-
