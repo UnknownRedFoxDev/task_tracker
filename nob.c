@@ -8,7 +8,7 @@
 #define EXECUTABLE_NAME "tatr"
 #define EXECUTABLE_PATH BIN_DIR EXECUTABLE_NAME
 
-bool debug = true;
+bool debug = false;
 
 typedef struct {
     const char **items;

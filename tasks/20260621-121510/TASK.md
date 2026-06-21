@@ -1,6 +1,6 @@
 # Add 'close <task-id1>[, <task-id2>]' to automatically close a or multiple tasks
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 40
 - TAGS: feature,cmdline-options
 

@@ -1,6 +1,6 @@
 # Add `rm <task-id1>[,<task-id2>,<task-id3>,...]` option to tatr to remove a task by its id
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 40
 - TAGS: feature,cmdline-options
 

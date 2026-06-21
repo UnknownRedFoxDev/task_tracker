@@ -41,11 +41,51 @@ bool remove_tasks(tasks_t *tasks, Flag_List_Mut *tasks_uuid)
     }
     return true;
 }
-// bool close_tasks(tasks_t *tasks, Flag_List_Mut *tasks_uuid);
 
 bool close_task(task_t *task)
 {
-    TODO("close_task()");
+    const char *task_md_path = temp_sprintf("%s%s/TASK.md", task->path, task->uuid);
+    String_Builder sb = {0};
+    String_Builder temp_sb = {0};
+    bool result = true;
+
+    if (!read_entire_file(task_md_path, &sb)) return_defer(false);
+
+    size_t ite = 0;
+    while (sb.items[ite++] != '\n'); // # <title>\n
+    ite += 1; // \n
+    while (sb.items[ite++] != '\n'); // # - STATUS: OPEN\n
+
+    for (size_t i = ite; i < sb.count; ++i) {
+        sb_append(&temp_sb, sb.items[i]);
+    }
+
+    sb.count -= sb.count - ite + 5;
+
+    sb_appendf(&sb, "CLOSED\n");
+    sb_append_buf(&sb, temp_sb.items, temp_sb.count);
+
+    if (!write_entire_file(task_md_path, sb.items, sb.count)) return_defer(false);
+
+defer:
+    free(sb.items);
+    free(temp_sb.items);
+
+    return result;
+}
+
+bool close_tasks(tasks_t *tasks, Flag_List_Mut *tasks_uuid)
+{
+    da_foreach (task_t, task, tasks) {
+        for (size_t i = 0; i < tasks_uuid->count; ++i) {
+            if (strcmp(task->uuid, tasks_uuid->items[i]) == 0) {
+                if (!close_task(task)) return false;
+                da_remove_unordered(tasks_uuid, i);
+                break;
+            }
+        }
+    }
+    return true;
 }
 
 bool open_task(task_t *task)
@@ -229,10 +269,14 @@ void print_tasks(const tasks_t *tasks, Flag_List_Mut *filters)
 }
 
 
-task_t create_task(const char *path, const char *task_name)
+task_t *create_task(const char *path, const char *task_name)
 {
     String_Builder sb = {0};
-    task_t result = {0};
+    task_t *result = calloc(1, sizeof(task_t));
+    if (result == NULL) {
+        nob_log(ERROR, "Failed to calloc a task_t");
+        return NULL;
+    }
 
     sb_appendf(&sb, "# %s\n", task_name);
     sb_appendf(&sb, "\n");
@@ -249,11 +293,11 @@ task_t create_task(const char *path, const char *task_name)
     minimal_log_level = INFO;
     if (!write_entire_file(task_md, sb.items, sb.count)) goto defer;
 
-    result.name = strdup(task_name);
-    result.path = task_path;
-    result.uuid = dir_name;
-    result.priority = 1;
-    result.status = OPEN;
+    result->name = strdup(task_name);
+    result->path = strdup(path);
+    result->uuid = strdup(dir_name);
+    result->priority = 1;
+    result->status = OPEN;
 
     nob_log(INFO, "Created task at: %s%s/TASK.md%s", COLOR_RED, task_path, COLOR_RESET);
 
@@ -272,8 +316,8 @@ bool parse_task(const char *path, const char *uuid, task_t *task)
     if (!read_entire_file(temp_sprintf("%s%s/TASK.md", path, uuid), &sb)) return_defer(false);
     sv = sb_to_sv(sb);
 
-    task->path = path;
-    task->uuid = uuid;
+    task->path = strdup(path);
+    task->uuid = strdup(uuid);
 
     // # Title
     String_View name = sv_chop_by_delim(&sv, '\n');
@@ -339,6 +383,8 @@ bool parse_tasks(const char *path, tasks_t *tasks)
 void free_task(task_t *task)
 {
     free(task->name);
+    free(task->uuid);
+    free(task->path);
     free(task->tags.items);
 }
 

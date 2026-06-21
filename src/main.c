@@ -44,11 +44,11 @@ int main(int argc, char **argv)
     if (opts.list_tasks) {
         print_tasks(&tasks, &opts.filters);
     } else if (opts.create_task) {
-        task_t task = create_task(tasks_folder, opts.create_task);
-        if (task.path != NULL) {
-            open_task(&task);
+        task_t *task = create_task(tasks_folder, opts.create_task);
+        if (task->path != NULL) {
+            open_task(task);
         }
-        free_task(&task);
+        free_task(task);
     } else if (opts.summary) {
         task_summary();
     } else if (opts.open_task) {
@@ -61,9 +61,9 @@ int main(int argc, char **argv)
         print_task(stdout, task);
     } else if (opts.remove_tasks) {
         remove_tasks(&tasks, &opts.filters);
-    } /*else if (opts.close_tasks) {
+    } else if (opts.close_tasks) {
         close_tasks(&tasks, &opts.filters);
-    }*/
+    }
 
 defer:
     free_tasks(&tasks);

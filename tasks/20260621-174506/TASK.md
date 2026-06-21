@@ -1,6 +1,6 @@
 # Add 'find <task-id>' showing the task in question, similar to open option, but only prints it
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 10
 - TAGS: feature,cmdline-options
 
