@@ -33,6 +33,7 @@
 
 #include "../thirdparty/nob.h"
 #include "../thirdparty/flag.h"
+#include "../thirdparty/ht.h"
 
 #endif // COMMONS_H_
 

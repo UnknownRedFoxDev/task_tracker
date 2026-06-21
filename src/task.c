@@ -1,9 +1,7 @@
+#define HT_IMPLEMENTATION
 #include "../lib/task.h"
 #include "../lib/helper.h"
 #include "../lib/levenshtein.h"
-
-#define HT_IMPLEMENTATION
-#include "../thirdparty/ht.h"
 
 static Ht(const char*, int) __g_stats = { .hasheq = ht_cstr_hasheq };
 
@@ -107,16 +105,23 @@ bool open_task(task_t *task)
 
 void print_task(FILE *stream, task_t *task)
 {
-    fprintf(stream, "%s%s/TASK.md%s:%s1%s: ", COLOR_RED, task->uuid, COLOR_RESET, COLOR_YELLOW, COLOR_RESET);
-    fprintf(stream, "[PRIORITY: %-2d ", task->priority);
+    String_Builder sb = {0};
+    sb_appendf(&sb, "%s%s/TASK.md%s:%s1%s: ", COLOR_RED, task->uuid, COLOR_RESET, COLOR_YELLOW, COLOR_RESET);
+    sb_appendf(&sb, "[PRIORITY: %-2d ", task->priority);
     if (task->tags.count) {
-        fprintf(stream, ", TAGS: ");
-        for (size_t i = 0; i < task->tags.count; ++i) {
-            tag_t tag = task->tags.items[i];
-            fprintf(stream, "%s%s", tag, (i != task->tags.count - 1) ? "," : "");
+        sb_appendf(&sb, ", TAGS: ");
+        ht_foreach (val, &task->tags) {
+            const char *key = ht_key(&task->tags, val);
+            if (strcmp(key, "OPEN") && strcmp(key, "CLOSED") && strcmp(key, "UNTAGGED"))
+                sb_appendf(&sb, "%s,", key);
         }
+        sb.items[sb.count-1] = ']';
     }
-    fprintf(stream, "] %s\n", task->name);
+    sb_appendf(&sb, " %s\n", task->name);
+sb_append_null(&sb);
+    fprintf(stream, "%s", sb.items);
+    free(sb.items);
+    sb.items = NULL;
 }
 
 struct keyval {
@@ -175,14 +180,24 @@ struct task_distance {
     task_t *task;
 };
 
-int cmp_tasks(const struct task_distance *t1, const struct task_distance *t2)
+int cmp_tasks(const task_t *t1, const task_t *t2)
 {
-    return t2->task->priority - t1->task->priority;
+    return t2->priority - t1->priority;
 }
 
 int cmp_tasks_void(const void *t1, const void *t2)
 {
-    return cmp_tasks((const struct task_distance *)t1, (const struct task_distance *)t2);
+    return cmp_tasks((const task_t *)t1, (const task_t *)t2);
+}
+
+int cmp_tasks_a(const struct task_distance *t1, const struct task_distance *t2)
+{
+    return t2->task->priority - t1->task->priority;
+}
+
+int cmp_tasks_void_a(const void *t1, const void *t2)
+{
+    return cmp_tasks_a((const struct task_distance *)t1, (const struct task_distance *)t2);
 }
 
 int cmp_tasks_dist(const struct task_distance *t1, const struct task_distance *t2)
@@ -195,8 +210,166 @@ int cmp_tasks_dist_void(const void *t1, const void *t2)
     return cmp_tasks_dist((const struct task_distance *)t1, (const struct task_distance *)t2);
 }
 
-void print_tasks(const tasks_t *tasks, Flag_List_Mut *filters)
+typedef enum {
+    NONE,
+    NOT,
+    OR,
+    AND
+} boolean_keywords;
+
+const char *boolean_keyword_to_string(boolean_keywords key)
 {
+    switch (key) {
+        case NONE: return "none";
+        case NOT: return "not";
+        case OR: return "or";
+        case AND: return "and";
+        default:
+            UNREACHABLE("boolean_keyword");
+    }
+}
+
+String_View get_next_token(String_View *sv)
+{
+    String_View result = sv_chop_by_delim(sv, ' ');
+    if (sv_starts_with(result, sv_from_cstr("."))) sv_chop_left(&result, 1);
+    return result;
+}
+
+bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens)
+{
+    // TODO: rewrite it to take into account the new nomenclature: .<tag>, and, or, not
+    //       "pre-defined tags: .OPEN, .CLOSED (not .OPEN), .TAGGED, .UNTAGGED (not .TAGGED)
+    //       "by default: .OPEN and (.TAGGED or .UNTAGGED)
+
+    String_View sv = {0};
+    String_Builder sb = {0};
+    bool ignore_default = false;
+    bool result = true;
+
+    if (tokens->count > 0) {
+        sv = sv_from_cstr(tokens->items[0]);
+
+        String_View temp_sv = sv_from_cstr(tokens->items[0]);
+        while (temp_sv.count) {
+            String_View tok = sv_chop_by_delim(&temp_sv, ' ');
+            if (sv_eq(tok, sv_from_cstr(".CLOSED"))) {
+                ignore_default = true;
+                break;
+            }
+        }
+    }
+
+    if (sv.count == 0 || !ignore_default) {
+        nob_log(INFO, "loading default");
+        sb_appendf(&sb, ".OPEN");
+        if (sv.count > 0) sb_appendf(&sb, " and ");
+        sb_append_sv(&sb, sv);
+        sv = sb_to_sv(sb);
+    }
+
+    task_t *list = calloc(tasks->count, sizeof(task_t));
+    tasks_t temp_list = {0};
+
+    if (!list) return_defer(false);
+    int parentheses_count = 0;
+    String_View prev_token = {0};
+    String_View curr_token = {0};
+    String_View next_token = {0};
+    boolean_keywords curr_modif = NONE;
+    curr_modif = NONE;
+
+    nob_log(INFO, SV_Fmt, SV_Arg(sv));
+
+    while (sv.count) {
+        curr_token = sv_chop_by_delim(&sv, ' ');
+        next_token = get_next_token(&sv);
+        if (sv_starts_with(curr_token, sv_from_cstr("."))) sv_chop_left(&curr_token, 1);
+        nob_log(INFO, "-------------------------");
+        nob_log(INFO, "prev: "SV_Fmt ", curr: "SV_Fmt ", next: "SV_Fmt, SV_Arg(prev_token), SV_Arg(curr_token), SV_Arg(next_token));
+        nob_log(INFO, "before modif: %s", boolean_keyword_to_string(curr_modif));
+
+        if (sv_eq(curr_token, sv_from_cstr("not"))) {
+            curr_modif = NOT;
+        } else if (sv_eq(next_token, sv_from_cstr("and")) ) {
+            curr_modif = AND;
+            prev_token = curr_token;
+            curr_token = next_token;
+            next_token = get_next_token(&sv);
+        } else if (sv_eq(curr_token, sv_from_cstr("and"))) {
+            curr_modif = AND;
+        } else if (sv_eq(next_token, sv_from_cstr("or"))) {
+            curr_modif = OR;
+            prev_token = curr_token;
+            curr_token = next_token;
+            next_token = get_next_token(&sv);
+        } else if (sv_eq(curr_token, sv_from_cstr("or"))) {
+            curr_modif = OR;
+        } else if (sv_eq(curr_token, sv_from_cstr("TAGGED"))) {
+            prev_token = sv_from_cstr("not");
+            curr_token = sv_from_cstr(".UNTAGGED");
+            next_token = get_next_token(&sv);
+            curr_modif = NOT;
+        }
+
+        nob_log(INFO, "prev: "SV_Fmt ", curr: "SV_Fmt ", next: "SV_Fmt, SV_Arg(prev_token), SV_Arg(curr_token), SV_Arg(next_token));
+        nob_log(INFO, "after modif: %s", boolean_keyword_to_string(curr_modif));
+        nob_log(INFO, "-------------------------");
+
+        da_foreach (task_t, task, tasks) {
+            switch (curr_modif) {
+            case NONE: {
+                if (ht_find(&task->tags, temp_sv_to_cstr(curr_token)) != NULL) {
+                    da_append(&temp_list, *task);
+                }
+            } break;
+            case NOT: {
+                if (ht_find(&task->tags, temp_sv_to_cstr(next_token)) == NULL) {
+                    da_append(&temp_list, *task);
+                }
+            } break;
+            case OR: {
+                if (ht_find(&task->tags, temp_sv_to_cstr(next_token)) != NULL ||
+                    ht_find(&task->tags, temp_sv_to_cstr(prev_token)) != NULL) {
+                    da_append(&temp_list, *task);
+                }
+            } break;
+            case AND: {
+                if (ht_find(&task->tags, temp_sv_to_cstr(next_token)) != NULL &&
+                    ht_find(&task->tags, temp_sv_to_cstr(prev_token)) != NULL) {
+                    da_append(&temp_list, *task);
+                }
+            } break;
+            default:
+                UNREACHABLE("boolean_keywords: curr_token in print_tasks()");
+            }
+        }
+        prev_token = next_token;
+    }
+
+    if (parentheses_count != 0) {
+        nob_log(ERROR, "failed to parse filters, uneven amount of paratheses");
+    }
+
+defer:
+    if (result) {
+        free(list);
+    }
+
+    int i = 0;
+    da_foreach (task_t, task, &temp_list) {
+        list[i++] = *task;
+    }
+
+    qsort(list, temp_list.count, sizeof(task_t), cmp_tasks_void);
+    for (size_t i = 0; i < temp_list.count; ++i) {
+        print_task(stdout, &list[i]);
+    }
+
+    free(sb.items);
+    return result;
+#if 0
+    return result;
     struct task_distance *distances = calloc(tasks->count, sizeof(struct task_distance));
     bool exclude_opened_tasks = false;
     bool all = false;
@@ -266,6 +439,7 @@ void print_tasks(const tasks_t *tasks, Flag_List_Mut *filters)
         }
     }
     free(distances);
+#endif
 }
 
 
@@ -298,6 +472,7 @@ task_t *create_task(const char *path, const char *task_name)
     result->uuid = strdup(dir_name);
     result->priority = 1;
     result->status = OPEN;
+    result->tags.hasheq = ht_cstr_hasheq;
 
     nob_log(INFO, "Created task at: %s%s/TASK.md%s", COLOR_RED, task_path, COLOR_RESET);
 
@@ -318,6 +493,7 @@ bool parse_task(const char *path, const char *uuid, task_t *task)
 
     task->path = strdup(path);
     task->uuid = strdup(uuid);
+    task->tags.hasheq = ht_cstr_hasheq;
 
     // # Title
     String_View name = sv_chop_by_delim(&sv, '\n');
@@ -331,7 +507,8 @@ bool parse_task(const char *path, const char *uuid, task_t *task)
     String_View status = sv_chop_by_delim(&sv, '\n');
     sv_chop_prefix(&status, sv_from_cstr("- STATUS: "));
     const char *cstatus = temp_sv_to_cstr(status);
-    *ht_put(&__g_stats, cstatus) = *ht_find(&__g_stats, cstatus) + 1;
+    *ht_find_or_put(&__g_stats, cstatus) += 1;
+    *ht_put(&task->tags, cstatus) = true;
     task->status = cstr_to_task_status(cstatus);
 
     // - PRIORITY: UINT
@@ -344,17 +521,15 @@ bool parse_task(const char *path, const char *uuid, task_t *task)
     if (sv_chop_prefix(&tags_line, sv_from_cstr("- TAGS: "))) {
         while (tags_line.count) {
             char *tag = sv_to_cstr(sv_chop_by_delim(&tags_line, ','));
-            {
-                int *val = ht_find(&__g_stats, tag);
-                *ht_put(&__g_stats, tag) = val ? *val + 1 : 1;
-            }
-            da_append(&task->tags, tag);
+            *ht_find_or_put(&__g_stats, tag) += 1;
+            *ht_put(&task->tags, tag) = true;
         }
     } else {
-        *ht_put(&__g_stats, "UNTAGGED") = *ht_find(&__g_stats, "UNTAGGED") + 1;
+        *ht_find_or_put(&__g_stats, "UNTAGGED") += 1;
+        *ht_put(&task->tags, "UNTAGGED") = true;
     }
 
-    *ht_put(&__g_stats, "TOTAL") = *ht_find(&__g_stats, "TOTAL") + 1;
+    *ht_find_or_put(&__g_stats, "TOTAL") += 1;
 defer:
     free(sb.items);
     return result;
@@ -385,7 +560,6 @@ void free_task(task_t *task)
     free(task->name);
     free(task->uuid);
     free(task->path);
-    free(task->tags.items);
 }
 
 void free_tasks(tasks_t *tasks)

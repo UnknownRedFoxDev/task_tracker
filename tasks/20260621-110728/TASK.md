@@ -24,3 +24,7 @@ Related tasks:
 
 - TASK(20260621-112041): Rework tag system
 - TASK(20260621-115953): Add additional filtering keyworks
+
+When doing `not <tag>` or `<tag1> and <tag2>` or `<tag1> or <tag2>`, I'm not comparing tags, I'm comparing lists created from the tags and filtering the remainder
+
+so when `<tag1> and (<tag2> or <tag3>)` I should be comparing list of tag1, with the last made of at least tag2 or tag3

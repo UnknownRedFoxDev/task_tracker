@@ -27,7 +27,7 @@ void add_standard_flags(Nob_Cmd *cmd)
     if (debug) {
         cmd_append(cmd, "-g");
         cmd_append(cmd, "-ggdb");
-        cmd_append(cmd, "-fsanitize=address");
+        // cmd_append(cmd, "-fsanitize=address");
     }
 }
 

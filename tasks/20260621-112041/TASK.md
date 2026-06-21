@@ -1,6 +1,6 @@
 # Rework tag system
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 100
 - TAGS: feature,tags-system,internal-rework
 
@@ -102,3 +102,18 @@ Related tasks:
 
 - TASK(20260621-110728): Replace filter system to use .<str> for tag filtering and tokenized those to use 'and' and 'or' and 'not'
 - TASK(20260621-115953): Add additional filtering keyworks
+
+
+
+In new tags:
+
+`not .<TAG>` looks at the task's tag if it does have the tag `TAG`.
+If it does, then it doesn't print it.
+
+`.<TAG1> and .<TAG2>` search if the task's tag has `TAG1` and `TAG2`
+
+`.<TAG1> or .<TAG2>` search if the task's tag has either `TAG1` or `TAG2`
+
+- OPEN | CLOSED
+- UNTAGGED if no tags, thus TAGGED = not .UNTAGGED
+- tags

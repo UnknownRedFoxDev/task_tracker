@@ -76,8 +76,6 @@ void parse_options(int argc, char **argv, cmdline_opts *opts)
             char *filter = shift(argv, argc);
             da_append(&opts->filters, filter);
         }
-    } else {
-        da_append(&opts->filters, "");
     }
 
     if (opts->help) {
