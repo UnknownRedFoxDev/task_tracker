@@ -28,6 +28,9 @@
 #include <time.h>
 #include <locale.h>
 #include <sys/types.h>
+#include <stdlib.h>
+#include <string.h>
+
 #include "../thirdparty/nob.h"
 #include "../thirdparty/flag.h"
 

@@ -152,11 +152,16 @@ int main(int argc, char **argv)
     bool help, rebuild, run, nobuild;
     bool needs_recompile = false;
     int result = 0;
+    submodules modules = {0};
 
     Nob_Cmd cmd = {0};
     parse_flag(argc, argv, &help, &rebuild, &run, &nobuild);
 
+    da_append(&modules, "task");
+    da_append(&modules, "helper");
+
     if (rebuild) initialise_directories();
+    if (!nobuild && !compile_submodules(&modules, &needs_recompile)) return_defer(1);
     if (!nobuild && !compile_main(&cmd, needs_recompile)) return_defer(1);
 
     if (run) {
