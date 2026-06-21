@@ -10,6 +10,8 @@ int main(int argc, char **argv)
 
     const char *tasks_folder = "./tasks/";
     parse_tasks(tasks_folder, &tasks);
+    print_tasks(&tasks, NULL);
+    free_tasks(&tasks);
 
 #if 0
     if (!parse_tasks(tasks_folder, &tasks)) return 1;

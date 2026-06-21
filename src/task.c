@@ -17,11 +17,31 @@ void print_task(FILE *stream, task_t *task)
             fprintf(stream, "%s%s", tag, (i != task->tags.count - 1) ? "," : "");
         }
     }
-    fprintf(stream, "] %s\n", task->name);}
+    fprintf(stream, "] %s\n", task->name);
+}
+
+int cmp_tasks(const task_t *t1, const task_t *t2)
+{
+    return t2->priority - t1->priority;
+}
+
+int cmp_tasks_void(const void *t1, const void *t2)
+{
+    return cmp_tasks((const task_t *)t1, (const task_t *)t2);
+}
 
 void print_tasks(const tasks_t *tasks, Flag_List_Mut *filters)
 {
-    TODO("print_tasks");
+    task_t *ordered = calloc(tasks->count, sizeof(task_t));
+    for (size_t i = 0; i < tasks->count; ++i) {
+        ordered[i] = tasks->items[i];
+    }
+
+    qsort(ordered, tasks->count, sizeof(task_t), cmp_tasks_void);
+
+    for (size_t i = 0; i < tasks->count; ++i) {
+        print_task(stdout, &ordered[i]);
+    }
 }
 
 
@@ -102,12 +122,18 @@ bool parse_tasks(const char *path, tasks_t *tasks)
     da_foreach (const char *, uuid, &tasks_uuid) {
         if (!sv_starts_with(sv_from_cstr(*uuid), sv_from_cstr("."))) {
             task_t task = {0};
-            parse_task(path, *uuid, &task);
-            print_task(stdout, &task);
-            free_task(&task);
+            if (!parse_task(path, *uuid, &task)) return false;
+            da_append(tasks, task);
         }
     }
 
     return true;
 }
 
+void free_tasks(tasks_t *tasks)
+{
+    da_foreach (task_t, task, tasks) {
+        free_task(task);
+    }
+    free(tasks->items);
+}

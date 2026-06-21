@@ -38,5 +38,6 @@ bool create_task(const char *path, const char *task_name);
 bool parse_task(const char *path, const char *uuid, task_t *task);
 bool parse_tasks(const char *path, tasks_t *tasks);
 void free_task(task_t *task);
+void free_tasks(tasks_t *tasks);
 
 #endif // TASK_H_
