@@ -2,7 +2,7 @@
 
 - STATUS: CLOSED
 - PRIORITY: 10
-- TAGS:
+- TAGS: internal-rework
 
 Tasks directory should always be at the cwd. Aka, if at at a project's root, you should have:
 

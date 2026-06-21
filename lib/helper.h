@@ -9,6 +9,7 @@ typedef struct {
     bool list_tasks;
     bool summary;
     char *open_task;
+    char *find_task;
     char *create_task;
     Flag_List_Mut filters;
 } cmdline_opts;

@@ -53,12 +53,12 @@ int main(int argc, char **argv)
         task_summary();
     } else if (opts.open_task) {
         task_t *task = find_task(&tasks, opts.open_task);
-        if (task) {
-            open_task(task);
-        } else {
-            nob_log(WARNING, "TASK(%s) was not found", opts.open_task);
-            return_defer(1);
-        }
+        if (!task) return_defer(1);
+        open_task(task);
+    } else if (opts.find_task) {
+        task_t *task = find_task(&tasks, opts.find_task);
+        if (!task) return_defer(1);
+        print_task(stdout, task);
     }
 
 defer:
