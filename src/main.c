@@ -14,7 +14,6 @@ typedef enum {
     CLOSED,
     OPEN,
 } task_status;
-
 typedef char * tag_t;
 
 typedef struct {
@@ -148,10 +147,31 @@ void print_tasks(const tasks_t *tasks, Flag_List_Mut *filters)
 }
 
 
-bool create_task(tasks_t *tasks, const char *path, const char *task_name)
+bool create_task(const char *path, const char *task_name)
 {
-    TODO("create_task");
-}
+    String_Builder sb = {0};
+    bool result = true;
+
+    sb_appendf(&sb, "# %s\n", task_name);
+    sb_appendf(&sb, "\n");
+    sb_appendf(&sb, "- STATUS: OPEN\n");
+    sb_appendf(&sb, "- PRIORITY: 1\n\n");
+
+    char *dir_name = get_timestamp_uuid();
+    const char *task_path = temp_sprintf("%s%s", path, dir_name);
+    const char *task_md = temp_sprintf("%s/TASK.md", task_path);
+
+    minimal_log_level = ERROR;
+    if (!mkdir_if_not_exists(task_path)) return_defer(false);
+    minimal_log_level = INFO;
+    if (!write_entire_file(task_md, sb.items, sb.count)) return_defer(false);
+
+    nob_log(INFO, "Created task at: %s%s/TASK.md%s", COLOR_RED, task_path, COLOR_RESET);
+
+defer:
+    free(sb.items);
+    free(dir_name);
+    return result;}
 
 bool parse_task(const char *path, const char *uuid, task_t *task)
 {
@@ -198,17 +218,14 @@ bool parse_tasks(const char *path, tasks_t *tasks)
 
 int main(int argc, char **argv)
 {
-    cmdline_opts opts = {0};
-    tasks_t tasks = {0};
-    parse_options(argc, argv, &opts);
+    // cmdline_opts opts = {0};
+    // tasks_t tasks = {0};
+    // parse_options(argc, argv, &opts);
 
     const char *tasks_folder = "./tasks/";
-    const char *task_id = "20260620-233713";
-    task_t task = {0};
-    if (!parse_task(tasks_folder, task_id, &task)) return 1;
-    print_task(stderr, &task);
+    create_task(tasks_folder, "this is a test task");
 
-    return 0;
+#if 0
     if (!parse_tasks(tasks_folder, &tasks)) return 1;
 
     if (opts.list_tasks) {
@@ -218,6 +235,7 @@ int main(int argc, char **argv)
     } else if (opts.summary) {
         task_summary();
     }
+#endif
 
     return 0;
 }
