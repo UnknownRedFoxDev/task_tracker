@@ -236,6 +236,76 @@ String_View get_next_token(String_View *sv)
     return result;
 }
 
+/*
+ * 20260621-110728:
+ * When doing `not <tag>` or `<tag1> and <tag2>` or `<tag1> or <tag2>`, I'm not comparing tags, I'm comparing lists created from the tags and filtering the remainder
+ * so when `<tag1> and (<tag2> or <tag3>)` I should be comparing list of tag1, with the last made of at least tag2 or tag3
+ */
+task_t *eval_tokens(const tasks_t *tasks, String_View *tokens)
+{
+    task_t *result = calloc(tasks->count, sizeof(task_t));
+
+    int parentheses_count = 0;
+    String_View prev_token = {0};
+    String_View curr_token = {0};
+    String_View next_token = {0};
+    tasks_t temp_list = {0};
+    boolean_keywords curr_modif = NONE;
+    curr_modif = NONE;
+
+    nob_log(INFO, SV_Fmt, SV_Arg(*tokens));
+
+    while (tokens->count) {
+        nob_log(INFO, "-------------------------");
+        nob_log(INFO, "prev: "SV_Fmt ", curr: "SV_Fmt ", next: "SV_Fmt, SV_Arg(prev_token), SV_Arg(curr_token), SV_Arg(next_token));
+        nob_log(INFO, "before modif: %s", boolean_keyword_to_string(curr_modif));
+
+        nob_log(INFO, "prev: "SV_Fmt ", curr: "SV_Fmt ", next: "SV_Fmt, SV_Arg(prev_token), SV_Arg(curr_token), SV_Arg(next_token));
+        nob_log(INFO, "after modif: %s", boolean_keyword_to_string(curr_modif));
+        nob_log(INFO, "-------------------------");
+
+        da_foreach (task_t, task, tasks) {
+            switch (curr_modif) {
+            case NONE: {
+                TODO("none");
+                // if (ht_find(&task->tags, temp_sv_to_cstr(curr_token)) != NULL) {
+                // }
+            } break;
+            case NOT: {
+                TODO("not");
+                // if (ht_find(&task->tags, temp_sv_to_cstr(next_token)) == NULL) {
+                //     da_append(&temp_list, *task);
+                // }
+            } break;
+            case OR: {
+                TODO("or");
+                // if (ht_find(&task->tags, temp_sv_to_cstr(next_token)) != NULL ||
+                //     ht_find(&task->tags, temp_sv_to_cstr(prev_token)) != NULL) {
+                //     da_append(&temp_list, *task);
+                // }
+            } break;
+            case AND: {
+                TODO("and");
+                // if (ht_find(&task->tags, temp_sv_to_cstr(next_token)) != NULL &&
+                //     ht_find(&task->tags, temp_sv_to_cstr(prev_token)) != NULL) {
+                //     da_append(&temp_list, *task);
+                // }
+            } break;
+            default:
+                UNREACHABLE("boolean_keywords: curr_token in print_tasks()");
+            }
+        }
+        prev_token = next_token;
+    }
+
+    if (parentheses_count != 0) {
+        nob_log(ERROR, "failed to parse filters, uneven amount of paratheses");
+        return NULL;
+    }
+
+    return result;
+}
+
 bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens)
 {
     // TODO: rewrite it to take into account the new nomenclature: .<tag>, and, or, not
@@ -268,102 +338,18 @@ bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens)
         sv = sb_to_sv(sb);
     }
 
-    task_t *list = calloc(tasks->count, sizeof(task_t));
-    tasks_t temp_list = {0};
-
+    // Size of tasks->count; The list may contain holes, or be incomplete due to the filtering
+    task_t *list = eval_tokens(tasks, &sv);
     if (!list) return_defer(false);
-    int parentheses_count = 0;
-    String_View prev_token = {0};
-    String_View curr_token = {0};
-    String_View next_token = {0};
-    boolean_keywords curr_modif = NONE;
-    curr_modif = NONE;
-
-    nob_log(INFO, SV_Fmt, SV_Arg(sv));
-
-    while (sv.count) {
-        curr_token = sv_chop_by_delim(&sv, ' ');
-        next_token = get_next_token(&sv);
-        if (sv_starts_with(curr_token, sv_from_cstr("."))) sv_chop_left(&curr_token, 1);
-        nob_log(INFO, "-------------------------");
-        nob_log(INFO, "prev: "SV_Fmt ", curr: "SV_Fmt ", next: "SV_Fmt, SV_Arg(prev_token), SV_Arg(curr_token), SV_Arg(next_token));
-        nob_log(INFO, "before modif: %s", boolean_keyword_to_string(curr_modif));
-
-        if (sv_eq(curr_token, sv_from_cstr("not"))) {
-            curr_modif = NOT;
-        } else if (sv_eq(next_token, sv_from_cstr("and")) ) {
-            curr_modif = AND;
-            prev_token = curr_token;
-            curr_token = next_token;
-            next_token = get_next_token(&sv);
-        } else if (sv_eq(curr_token, sv_from_cstr("and"))) {
-            curr_modif = AND;
-        } else if (sv_eq(next_token, sv_from_cstr("or"))) {
-            curr_modif = OR;
-            prev_token = curr_token;
-            curr_token = next_token;
-            next_token = get_next_token(&sv);
-        } else if (sv_eq(curr_token, sv_from_cstr("or"))) {
-            curr_modif = OR;
-        } else if (sv_eq(curr_token, sv_from_cstr("TAGGED"))) {
-            prev_token = sv_from_cstr("not");
-            curr_token = sv_from_cstr(".UNTAGGED");
-            next_token = get_next_token(&sv);
-            curr_modif = NOT;
-        }
-
-        nob_log(INFO, "prev: "SV_Fmt ", curr: "SV_Fmt ", next: "SV_Fmt, SV_Arg(prev_token), SV_Arg(curr_token), SV_Arg(next_token));
-        nob_log(INFO, "after modif: %s", boolean_keyword_to_string(curr_modif));
-        nob_log(INFO, "-------------------------");
-
-        da_foreach (task_t, task, tasks) {
-            switch (curr_modif) {
-            case NONE: {
-                if (ht_find(&task->tags, temp_sv_to_cstr(curr_token)) != NULL) {
-                    da_append(&temp_list, *task);
-                }
-            } break;
-            case NOT: {
-                if (ht_find(&task->tags, temp_sv_to_cstr(next_token)) == NULL) {
-                    da_append(&temp_list, *task);
-                }
-            } break;
-            case OR: {
-                if (ht_find(&task->tags, temp_sv_to_cstr(next_token)) != NULL ||
-                    ht_find(&task->tags, temp_sv_to_cstr(prev_token)) != NULL) {
-                    da_append(&temp_list, *task);
-                }
-            } break;
-            case AND: {
-                if (ht_find(&task->tags, temp_sv_to_cstr(next_token)) != NULL &&
-                    ht_find(&task->tags, temp_sv_to_cstr(prev_token)) != NULL) {
-                    da_append(&temp_list, *task);
-                }
-            } break;
-            default:
-                UNREACHABLE("boolean_keywords: curr_token in print_tasks()");
-            }
-        }
-        prev_token = next_token;
-    }
-
-    if (parentheses_count != 0) {
-        nob_log(ERROR, "failed to parse filters, uneven amount of paratheses");
-    }
 
 defer:
+    qsort(list, tasks->count, sizeof(task_t), cmp_tasks_void);
+    for (size_t i = 0; i < tasks->count; ++i) {
+        print_task(stdout, &list[i]);
+    }
+
     if (result) {
         free(list);
-    }
-
-    int i = 0;
-    da_foreach (task_t, task, &temp_list) {
-        list[i++] = *task;
-    }
-
-    qsort(list, temp_list.count, sizeof(task_t), cmp_tasks_void);
-    for (size_t i = 0; i < temp_list.count; ++i) {
-        print_task(stdout, &list[i]);
     }
 
     free(sb.items);
