@@ -241,11 +241,11 @@ String_View get_next_token(String_View *sv)
  * When doing `not <tag>` or `<tag1> and <tag2>` or `<tag1> or <tag2>`, I'm not comparing tags, I'm comparing lists created from the tags and filtering the remainder
  * so when `<tag1> and (<tag2> or <tag3>)` I should be comparing list of tag1, with the last made of at least tag2 or tag3
  */
-task_t *eval_tokens(const tasks_t *tasks, String_View *tokens)
+task_t **eval_tokens(const tasks_t *tasks, String_View *tokens)
 {
-    Ht(char *, task_t) temp_result = { .hasheq = ht_cstr_hasheq };
-    task_t *result = calloc(tasks->count, sizeof(task_t));
-    task_t **lists = calloc(tasks->count, sizeof(task_t *));
+    Ht(char *, task_t *) temp_result = { .hasheq = ht_cstr_hasheq };
+    task_t **result = calloc(tasks->count, sizeof(task_t *));
+    task_t ***lists = calloc(tasks->count, sizeof(task_t **));
 
     size_t index = 0;
     size_t curr_inner_ite = 0;
@@ -288,7 +288,7 @@ task_t *eval_tokens(const tasks_t *tasks, String_View *tokens)
         if (curr_token.data[0] == '.') sv_chop_left(&curr_token, 1);
         if (next_token.count && next_token.data[0] == '.') sv_chop_left(&next_token, 1);
         if (lists[index] == NULL) { // Create list at index if it doesn't already exists.
-            lists[index] = calloc(tasks->count, sizeof(task_t));
+            lists[index] = calloc(tasks->count, sizeof(task_t *));
         }
         switch (curr_mode) {
         case NONE: {
@@ -298,7 +298,7 @@ task_t *eval_tokens(const tasks_t *tasks, String_View *tokens)
 #ifdef DEBUG
                     nob_log(INFO, "task(%s): found matching to tag "SV_Fmt, task->uuid, SV_Arg(curr_token));
 #endif // DEBUG
-                    lists[index][curr_inner_ite++] = *task;
+                    lists[index][curr_inner_ite++] = task;
                 }
             }
         } break;
@@ -309,7 +309,7 @@ task_t *eval_tokens(const tasks_t *tasks, String_View *tokens)
 #ifdef DEBUG
                     nob_log(INFO, "task(%s): found not matching to tag "SV_Fmt, task->uuid, SV_Arg(curr_token));
 #endif // DEBUG
-                    lists[index][curr_inner_ite++] = *task;
+                    lists[index][curr_inner_ite++] = task;
                 }
             }
         } break;
@@ -327,35 +327,35 @@ task_t *eval_tokens(const tasks_t *tasks, String_View *tokens)
 #ifdef DEBUG
                     nob_log(INFO, "task(%s): found matching to tag "SV_Fmt, task->uuid, SV_Arg(next_token));
 #endif // DEBUG
-                    lists[index][curr_inner_ite++] = *task;
+                    lists[index][curr_inner_ite++] = task;
                 }
             }
 #ifdef DEBUG
             for (size_t it = 0; it < curr_inner_ite; ++it) {
-                print_task(stdout, &lists[index][it]);
+                print_task(stdout, lists[index][it]);
             }
 
             nob_log(INFO, "-------------------------");
 #endif // DEBUG
             size_t i, j;
             for (i = 0, j = 0; i < curr_inner_ite && j < prev_inner_ite; ++i, ++j) {
-                task_t prev_task = lists[index-1][j];
-                task_t next_task = lists[index][i];
-                bool *prev_found = ht_find(&prev_task.tags, temp_sv_to_cstr(next_token));
-                bool *next_found = ht_find(&next_task.tags, temp_sv_to_cstr(prev_token));
+                task_t *prev_task = lists[index-1][j];
+                task_t *next_task = lists[index][i];
+                bool *prev_found = ht_find(&prev_task->tags, temp_sv_to_cstr(next_token));
+                bool *next_found = ht_find(&next_task->tags, temp_sv_to_cstr(prev_token));
 
-                if (prev_found && !ht_find(&temp_result, prev_task.uuid)) {
+                if (prev_found && !ht_find(&temp_result, prev_task->uuid)) {
 #ifdef DEBUG
-                    nob_log(INFO, "prev_task(%s): found matching to both "SV_Fmt " and "SV_Fmt, prev_task.uuid, SV_Arg(prev_token), SV_Arg(next_token));
+                    nob_log(INFO, "prev_task(%s): found matching to both "SV_Fmt " and "SV_Fmt, prev_task->uuid, SV_Arg(prev_token), SV_Arg(next_token));
 #endif // DEBUG
-                    *ht_put(&temp_result, prev_task.uuid) = prev_task;
+                    *ht_put(&temp_result, prev_task->uuid) = prev_task;
                 }
 
-                if (next_found && !ht_find(&temp_result, next_task.uuid)) {
+                if (next_found && !ht_find(&temp_result, next_task->uuid)) {
 #ifdef DEBUG
-                    nob_log(INFO, "next_task(%s): found matching to both "SV_Fmt " and "SV_Fmt, next_task.uuid, SV_Arg(prev_token), SV_Arg(next_token));
+                    nob_log(INFO, "next_task(%s): found matching to both "SV_Fmt " and "SV_Fmt, next_task->uuid, SV_Arg(prev_token), SV_Arg(next_token));
 #endif // DEBUG
-                    *ht_put(&temp_result, next_task.uuid) = next_task;
+                    *ht_put(&temp_result, next_task->uuid) = next_task;
                 }
             }
 
@@ -364,33 +364,32 @@ task_t *eval_tokens(const tasks_t *tasks, String_View *tokens)
             //
             if (i < curr_inner_ite) {
                 for (; i < curr_inner_ite; ++i) {
-                    task_t next_task = lists[index][i];
-                    bool *next_found = ht_find(&next_task.tags, temp_sv_to_cstr(prev_token));
+                    task_t *next_task = lists[index][i];
+                    bool *next_found = ht_find(&next_task->tags, temp_sv_to_cstr(prev_token));
 
-                    if (next_found && !ht_find(&temp_result, next_task.uuid)) {
+                    if (next_found && !ht_find(&temp_result, next_task->uuid)) {
 #ifdef DEBUG
-                        nob_log(INFO, "next_task(%s): found matching to both "SV_Fmt " and "SV_Fmt, next_task.uuid, SV_Arg(prev_token), SV_Arg(next_token));
+                        nob_log(INFO, "next_task(%s): found matching to both "SV_Fmt " and "SV_Fmt, next_task->uuid, SV_Arg(prev_token), SV_Arg(next_token));
 #endif // DEBUG
-                        *ht_put(&temp_result, next_task.uuid) = next_task;
+                        *ht_put(&temp_result, next_task->uuid) = next_task;
                     }
                 }
             }
             if (j < prev_inner_ite) {
                 for (; j < prev_inner_ite; ++j) {
-                    task_t prev_task = lists[index-1][j];
-                    bool *prev_found = ht_find(&prev_task.tags, temp_sv_to_cstr(next_token));
+                    task_t *prev_task = lists[index-1][j];
+                    bool *prev_found = ht_find(&prev_task->tags, temp_sv_to_cstr(next_token));
 
-                    if (prev_found && !ht_find(&temp_result, prev_task.uuid)) {
+                    if (prev_found && !ht_find(&temp_result, prev_task->uuid)) {
 #ifdef DEBUG
-                        nob_log(INFO, "prev_task(%s): found matching to both "SV_Fmt " and "SV_Fmt, prev_task.uuid, SV_Arg(prev_token), SV_Arg(next_token));
+                        nob_log(INFO, "prev_task(%s): found matching to both "SV_Fmt " and "SV_Fmt, prev_task->uuid, SV_Arg(prev_token), SV_Arg(next_token));
 #endif // DEBUG
-                        *ht_put(&temp_result, prev_task.uuid) = prev_task;
+                        *ht_put(&temp_result, prev_task->uuid) = prev_task;
                     }
                 }
             }
 
             memset(lists[index], 0, result_ite);
-            free(lists[index]);
 
             ht_foreach(val, &temp_result) {
                 result[result_ite++] = *val;
@@ -404,7 +403,7 @@ task_t *eval_tokens(const tasks_t *tasks, String_View *tokens)
 
 #ifdef DEBUG
         for (size_t i = 0; i < curr_inner_ite; ++i) {
-            print_task(stdout, &lists[index][i]);
+            print_task(stdout, lists[index][i]);
         }
 #endif // DEBUG
 
@@ -425,10 +424,16 @@ task_t *eval_tokens(const tasks_t *tasks, String_View *tokens)
 #ifdef DEBUG
     nob_log(INFO, "-------------------------\nResult:");
     for (size_t i = 0; i < prev_inner_ite; ++i) {
-        print_task(stdout, &result[i]);
+        print_task(stdout, result[i]);
     }
     nob_log(INFO, "-------------------------");
 #endif // DEBUG
+
+    for (size_t i = 0; i < index; ++i) {
+        if (i != index - 1) free(lists[i]);
+    }
+    free(lists);
+
     return result;
 }
 
@@ -464,17 +469,25 @@ bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens)
     }
 
     // Size of tasks->count; The list may contain holes, or be incomplete due to the filtering
-    task_t *list = eval_tokens(tasks, &sv);
+    task_t **list = eval_tokens(tasks, &sv);
+    task_t *ordered = NULL;
     if (!list) return_defer(false);
 
+    size_t n;
+    for (n = 0; n < tasks->count && list[n] != NULL; ++n);
+    ordered = calloc(n, sizeof(task_t));
+    for (size_t i = 0; i < n; ++i)
+        ordered[i] = *list[i];
+
 defer:
-    qsort(list, tasks->count, sizeof(task_t), cmp_tasks_void);
-    for (size_t i = 0; i < tasks->count && list[i].uuid; ++i) {
-        print_task(stdout, &list[i]);
+    qsort(ordered, n, sizeof(task_t), cmp_tasks_void);
+    for (size_t i = 0; i < n; ++i) {
+        print_task(stdout, &ordered[i]);
     }
 
     if (result) {
         free(list);
+        free(ordered);
     }
 
     free(sb.items);
@@ -557,7 +570,7 @@ bool parse_task(const char *path, const char *uuid, task_t *task)
 
     // - TAGS: <tag1>,<tag2>,<tag3>,...
     String_View tags_line = sv_chop_by_delim(&sv, '\n');
-    if (sv_chop_prefix(&tags_line, sv_from_cstr("- TAGS: "))) {
+    if (sv_chop_prefix(&tags_line, sv_from_cstr("- TAGS: ")) && tags_line.count > 0) {
         while (tags_line.count) {
             char *tag = sv_to_cstr(sv_chop_by_delim(&tags_line, ','));
             *ht_find_or_put(&__g_stats, tag) += 1;
