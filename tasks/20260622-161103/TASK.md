@@ -1,8 +1,8 @@
 # Optimize space usage when filtering by tags
 
-- STATUS: OPEN
-- PRIORITY: 1
-- TAGS:
+- STATUS: CLOSED
+- PRIORITY: 20
+- TAGS: filters,internal-rework
 
 # Currently
 we have:
