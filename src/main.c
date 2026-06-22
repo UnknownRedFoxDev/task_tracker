@@ -11,9 +11,10 @@ const char *find_tasks_dir()
     if (!read_entire_dir(cwd, &paths)) return NULL;
 
     da_foreach (const char *, path, &paths) {
+        Nob_File_Type ft = nob_get_file_type(*path);
         if (strstr(*path, "tasks") != NULL) {
             return temp_sprintf("./%s/", *path);
-        } else if (*path[0] != '.') { // Exclude '.', '..', '.git', etc
+        } else if (ft == NOB_FILE_DIRECTORY && *path[0] != '.') { // Exclude '.', '..', '.git', etc
             File_Paths childrens = {0};
             if (!read_entire_dir(*path, &childrens)) return NULL;
             da_foreach(const char *, sub_path, &childrens) {
