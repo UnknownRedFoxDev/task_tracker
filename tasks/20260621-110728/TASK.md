@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 80
-- TAGS: feature,filters,tags-system,internal-rework
+- TAGS: filters,tags-system,internal-rework
 
 User should be able to call this program as such:
 

@@ -1,7 +1,7 @@
 #define HT_IMPLEMENTATION
 #include "../lib/task.h"
 #include "../lib/helper.h"
-#include "../lib/levenshtein.h"
+// #include "../lib/levenshtein.h"
 
 static Ht(const char*, int) __g_stats = { .hasheq = ht_cstr_hasheq };
 
@@ -243,66 +243,192 @@ String_View get_next_token(String_View *sv)
  */
 task_t *eval_tokens(const tasks_t *tasks, String_View *tokens)
 {
+    Ht(char *, task_t) temp_result = { .hasheq = ht_cstr_hasheq };
     task_t *result = calloc(tasks->count, sizeof(task_t));
+    task_t **lists = calloc(tasks->count, sizeof(task_t *));
 
-    int parentheses_count = 0;
+    size_t index = 0;
+    size_t curr_inner_ite = 0;
+    size_t prev_inner_ite = 0;
+    size_t result_ite = 0;
+
     String_View prev_token = {0};
     String_View curr_token = {0};
     String_View next_token = {0};
-    tasks_t temp_list = {0};
-    boolean_keywords curr_modif = NONE;
-    curr_modif = NONE;
+    boolean_keywords curr_mode = NONE;
 
+#ifdef DEBUG
     nob_log(INFO, SV_Fmt, SV_Arg(*tokens));
+#endif // DEBUG
 
     while (tokens->count) {
+        curr_token = sv_chop_by_delim(tokens, ' ');
+#ifdef DEBUG
         nob_log(INFO, "-------------------------");
         nob_log(INFO, "prev: "SV_Fmt ", curr: "SV_Fmt ", next: "SV_Fmt, SV_Arg(prev_token), SV_Arg(curr_token), SV_Arg(next_token));
-        nob_log(INFO, "before modif: %s", boolean_keyword_to_string(curr_modif));
+        nob_log(INFO, "before modif: %s", boolean_keyword_to_string(curr_mode));
+#endif // DEBUG
 
-        nob_log(INFO, "prev: "SV_Fmt ", curr: "SV_Fmt ", next: "SV_Fmt, SV_Arg(prev_token), SV_Arg(curr_token), SV_Arg(next_token));
-        nob_log(INFO, "after modif: %s", boolean_keyword_to_string(curr_modif));
-        nob_log(INFO, "-------------------------");
-
-        da_foreach (task_t, task, tasks) {
-            switch (curr_modif) {
-            case NONE: {
-                TODO("none");
-                // if (ht_find(&task->tags, temp_sv_to_cstr(curr_token)) != NULL) {
-                // }
-            } break;
-            case NOT: {
-                TODO("not");
-                // if (ht_find(&task->tags, temp_sv_to_cstr(next_token)) == NULL) {
-                //     da_append(&temp_list, *task);
-                // }
-            } break;
-            case OR: {
-                TODO("or");
-                // if (ht_find(&task->tags, temp_sv_to_cstr(next_token)) != NULL ||
-                //     ht_find(&task->tags, temp_sv_to_cstr(prev_token)) != NULL) {
-                //     da_append(&temp_list, *task);
-                // }
-            } break;
-            case AND: {
-                TODO("and");
-                // if (ht_find(&task->tags, temp_sv_to_cstr(next_token)) != NULL &&
-                //     ht_find(&task->tags, temp_sv_to_cstr(prev_token)) != NULL) {
-                //     da_append(&temp_list, *task);
-                // }
-            } break;
-            default:
-                UNREACHABLE("boolean_keywords: curr_token in print_tasks()");
-            }
+        if (sv_eq(curr_token, sv_from_cstr("not"))) {
+            curr_mode = NOT;
+            prev_token = curr_token;
+            curr_token = get_next_token(tokens);
+        } else if (sv_eq(curr_token, sv_from_cstr("and"))) {
+            curr_mode = AND;
+            next_token = get_next_token(tokens);
         }
-        prev_token = next_token;
+
+#ifdef DEBUG
+        nob_log(INFO, "prev: "SV_Fmt ", curr: "SV_Fmt ", next: "SV_Fmt, SV_Arg(prev_token), SV_Arg(curr_token), SV_Arg(next_token));
+        nob_log(INFO, "after modif: %s", boolean_keyword_to_string(curr_mode));
+        nob_log(INFO, "-------------------------");
+#endif // DEBUG
+
+        if (prev_token.count && prev_token.data[0] == '.') sv_chop_left(&prev_token, 1);
+        if (curr_token.data[0] == '.') sv_chop_left(&curr_token, 1);
+        if (next_token.count && next_token.data[0] == '.') sv_chop_left(&next_token, 1);
+        if (lists[index] == NULL) { // Create list at index if it doesn't already exists.
+            lists[index] = calloc(tasks->count, sizeof(task_t));
+        }
+        switch (curr_mode) {
+        case NONE: {
+            da_foreach (task_t, task, tasks) {
+                bool *found = ht_find(&task->tags, temp_sv_to_cstr(curr_token));
+                if (found != NULL) {
+#ifdef DEBUG
+                    nob_log(INFO, "task(%s): found matching to tag "SV_Fmt, task->uuid, SV_Arg(curr_token));
+#endif // DEBUG
+                    lists[index][curr_inner_ite++] = *task;
+                }
+            }
+        } break;
+        case NOT: {
+            da_foreach (task_t, task, tasks) {
+                bool *found = ht_find(&task->tags, temp_sv_to_cstr(curr_token));
+                if (found == NULL) {
+#ifdef DEBUG
+                    nob_log(INFO, "task(%s): found not matching to tag "SV_Fmt, task->uuid, SV_Arg(curr_token));
+#endif // DEBUG
+                    lists[index][curr_inner_ite++] = *task;
+                }
+            }
+        } break;
+        case OR: {
+            TODO("or");
+            // if (ht_find(&task->tags, temp_sv_to_cstr(next_token)) != NULL ||
+            //     ht_find(&task->tags, temp_sv_to_cstr(prev_token)) != NULL) {
+            //     da_append(&temp_list, *task);
+            // }
+        } break;
+        case AND: {
+            da_foreach (task_t, task, tasks) {
+                bool *found = ht_find(&task->tags, temp_sv_to_cstr(next_token));
+                if (found != NULL) {
+#ifdef DEBUG
+                    nob_log(INFO, "task(%s): found matching to tag "SV_Fmt, task->uuid, SV_Arg(next_token));
+#endif // DEBUG
+                    lists[index][curr_inner_ite++] = *task;
+                }
+            }
+#ifdef DEBUG
+            for (size_t it = 0; it < curr_inner_ite; ++it) {
+                print_task(stdout, &lists[index][it]);
+            }
+
+            nob_log(INFO, "-------------------------");
+#endif // DEBUG
+            size_t i, j;
+            for (i = 0, j = 0; i < curr_inner_ite && j < prev_inner_ite; ++i, ++j) {
+                task_t prev_task = lists[index-1][j];
+                task_t next_task = lists[index][i];
+                bool *prev_found = ht_find(&prev_task.tags, temp_sv_to_cstr(next_token));
+                bool *next_found = ht_find(&next_task.tags, temp_sv_to_cstr(prev_token));
+
+                if (prev_found && !ht_find(&temp_result, prev_task.uuid)) {
+#ifdef DEBUG
+                    nob_log(INFO, "prev_task(%s): found matching to both "SV_Fmt " and "SV_Fmt, prev_task.uuid, SV_Arg(prev_token), SV_Arg(next_token));
+#endif // DEBUG
+                    *ht_put(&temp_result, prev_task.uuid) = prev_task;
+                }
+
+                if (next_found && !ht_find(&temp_result, next_task.uuid)) {
+#ifdef DEBUG
+                    nob_log(INFO, "next_task(%s): found matching to both "SV_Fmt " and "SV_Fmt, next_task.uuid, SV_Arg(prev_token), SV_Arg(next_token));
+#endif // DEBUG
+                    *ht_put(&temp_result, next_task.uuid) = next_task;
+                }
+            }
+
+            //
+            // If one of the two happen to be bigger than the other, iterate till the end to be sure nothing's be missed
+            //
+            if (i < curr_inner_ite) {
+                for (; i < curr_inner_ite; ++i) {
+                    task_t next_task = lists[index][i];
+                    bool *next_found = ht_find(&next_task.tags, temp_sv_to_cstr(prev_token));
+
+                    if (next_found && !ht_find(&temp_result, next_task.uuid)) {
+#ifdef DEBUG
+                        nob_log(INFO, "next_task(%s): found matching to both "SV_Fmt " and "SV_Fmt, next_task.uuid, SV_Arg(prev_token), SV_Arg(next_token));
+#endif // DEBUG
+                        *ht_put(&temp_result, next_task.uuid) = next_task;
+                    }
+                }
+            }
+            if (j < prev_inner_ite) {
+                for (; j < prev_inner_ite; ++j) {
+                    task_t prev_task = lists[index-1][j];
+                    bool *prev_found = ht_find(&prev_task.tags, temp_sv_to_cstr(next_token));
+
+                    if (prev_found && !ht_find(&temp_result, prev_task.uuid)) {
+#ifdef DEBUG
+                        nob_log(INFO, "prev_task(%s): found matching to both "SV_Fmt " and "SV_Fmt, prev_task.uuid, SV_Arg(prev_token), SV_Arg(next_token));
+#endif // DEBUG
+                        *ht_put(&temp_result, prev_task.uuid) = prev_task;
+                    }
+                }
+            }
+
+            memset(lists[index], 0, result_ite);
+            free(lists[index]);
+
+            ht_foreach(val, &temp_result) {
+                result[result_ite++] = *val;
+            }
+            lists[index] = result;
+            curr_inner_ite = result_ite;
+        } break;
+        default:
+            UNREACHABLE("boolean_keywords: curr_token in print_tasks()");
+        }
+
+#ifdef DEBUG
+        for (size_t i = 0; i < curr_inner_ite; ++i) {
+            print_task(stdout, &lists[index][i]);
+        }
+#endif // DEBUG
+
+        index++;
+        prev_inner_ite = curr_inner_ite;
+        curr_inner_ite = 0;
+        prev_token = curr_token;
     }
 
-    if (parentheses_count != 0) {
-        nob_log(ERROR, "failed to parse filters, uneven amount of paratheses");
-        return NULL;
+    // if (parentheses_count != 0) {
+    //     nob_log(ERROR, "failed to parse filters, uneven amount of paratheses");
+    //     return NULL;
+    // }
+    if (result_ite == 0) {
+        result = lists[index-1];
     }
 
+#ifdef DEBUG
+    nob_log(INFO, "-------------------------\nResult:");
+    for (size_t i = 0; i < prev_inner_ite; ++i) {
+        print_task(stdout, &result[i]);
+    }
+    nob_log(INFO, "-------------------------");
+#endif // DEBUG
     return result;
 }
 
@@ -331,7 +457,6 @@ bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens)
     }
 
     if (sv.count == 0 || !ignore_default) {
-        nob_log(INFO, "loading default");
         sb_appendf(&sb, ".OPEN");
         if (sv.count > 0) sb_appendf(&sb, " and ");
         sb_append_sv(&sb, sv);
@@ -344,7 +469,7 @@ bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens)
 
 defer:
     qsort(list, tasks->count, sizeof(task_t), cmp_tasks_void);
-    for (size_t i = 0; i < tasks->count; ++i) {
+    for (size_t i = 0; i < tasks->count && list[i].uuid; ++i) {
         print_task(stdout, &list[i]);
     }
 
@@ -354,78 +479,6 @@ defer:
 
     free(sb.items);
     return result;
-#if 0
-    return result;
-    struct task_distance *distances = calloc(tasks->count, sizeof(struct task_distance));
-    bool exclude_opened_tasks = false;
-    bool all = false;
-
-    for (size_t i = 0; i < filters->count; ++i) {
-        if (strcmp(filters->items[i], "CLOSED") == 0) {
-            exclude_opened_tasks = true;
-        } if (strcmp(filters->items[i], "all") == 0) {
-            da_remove_unordered(filters, i);
-            if (filters->count == 0)
-                da_append(filters, "");
-            all = true;
-        }
-    }
-
-    size_t min_dist = 100;
-    for (size_t i = 0; i < tasks->count; ++i) {
-        task_t curr_task = tasks->items[i];
-        size_t best_dist = 100;
-
-        if (all || (exclude_opened_tasks && curr_task.status == CLOSED) || (!exclude_opened_tasks && curr_task.status == OPEN)) {
-            for (size_t j = 0; j < filters->count && best_dist; ++j) {
-                // TAGS
-                for (size_t k = 0; k < curr_task.tags.count && best_dist; ++k) {
-                    if (strstr(curr_task.tags.items[k], filters->items[j])) {
-                        best_dist = 0;
-                    }
-                }
-                if (best_dist < min_dist)
-                    min_dist = best_dist;
-                if (best_dist == 0) continue;
-
-                // STATUS
-                if (strstr(filters->items[j], task_status_to_cstr(curr_task.status))) {
-                    best_dist = 5;
-                }
-                if (best_dist < min_dist)
-                    min_dist = best_dist;
-
-                // NAME
-                size_t dist_name = levenshtein(filters->items[j], curr_task.name);
-                if (strstr(curr_task.name, filters->items[j])) {
-                    best_dist = 0;
-                } else if (dist_name < best_dist && dist_name != strlen(curr_task.name) && dist_name < strlen(curr_task.name)) {
-                    best_dist = dist_name;
-                }
-                if (best_dist < min_dist)
-                    min_dist = best_dist;
-            }
-        }
-        distances[i].dist = best_dist;
-        distances[i].task = &tasks->items[i];
-    }
-
-    if (strcmp(filters->items[0], "") == 0) {
-        qsort(distances, tasks->count, sizeof(struct task_distance), cmp_tasks_void);
-    } else {
-        qsort(distances, tasks->count, sizeof(struct task_distance), cmp_tasks_dist_void);
-    }
-
-    if (min_dist > DISTANCE_THRESHOLD)
-        min_dist = DISTANCE_THRESHOLD;
-
-    for (size_t i = 0; i < tasks->count; ++i) {
-        if (distances[i].dist == min_dist) {
-            print_task(stdout, distances[i].task);
-        }
-    }
-    free(distances);
-#endif
 }
 
 
