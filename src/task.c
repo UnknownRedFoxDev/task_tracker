@@ -276,6 +276,9 @@ task_t **eval_tokens(const tasks_t *tasks, String_View *tokens)
         } else if (sv_eq(curr_token, sv_from_cstr("and"))) {
             curr_mode = AND;
             next_token = get_next_token(tokens);
+        } else if (sv_eq(curr_token, sv_from_cstr("or"))) {
+            curr_mode = AND;
+            next_token = get_next_token(tokens);
         }
 
 #ifdef DEBUG
@@ -291,6 +294,9 @@ task_t **eval_tokens(const tasks_t *tasks, String_View *tokens)
             lists[index] = calloc(tasks->count, sizeof(task_t *));
         }
         switch (curr_mode) {
+        // =============================================
+        //                     NONE
+        // =============================================
         case NONE: {
             da_foreach (task_t, task, tasks) {
                 bool *found = ht_find(&task->tags, temp_sv_to_cstr(curr_token));
@@ -302,6 +308,10 @@ task_t **eval_tokens(const tasks_t *tasks, String_View *tokens)
                 }
             }
         } break;
+
+        // =============================================
+        //                     NOT
+        // =============================================
         case NOT: {
             da_foreach (task_t, task, tasks) {
                 bool *found = ht_find(&task->tags, temp_sv_to_cstr(curr_token));
@@ -313,13 +323,39 @@ task_t **eval_tokens(const tasks_t *tasks, String_View *tokens)
                 }
             }
         } break;
+
+        // =============================================
+        //                      OR
+        // =============================================
         case OR: {
-            TODO("or");
-            // if (ht_find(&task->tags, temp_sv_to_cstr(next_token)) != NULL ||
-            //     ht_find(&task->tags, temp_sv_to_cstr(prev_token)) != NULL) {
-            //     da_append(&temp_list, *task);
-            // }
+            // Find task with the tag
+            da_foreach (task_t, task, tasks) {
+                bool *found = ht_find(&task->tags, temp_sv_to_cstr(next_token));
+                if (found != NULL) {
+                    // Add them to the HTable
+                    *ht_put(&temp_result, task->uuid) = task;
+                }
+            }
+
+            // Take previously computed task array
+            for (size_t j = 0; j < prev_inner_ite; ++j) {
+                // Add them to the HTable
+                task_t *prev_task = lists[index-1][j];
+                *ht_find_or_put(&temp_result, prev_task->uuid) = prev_task;
+            }
+
+            memset(lists[index], 0, result_ite);
+
+            ht_foreach(val, &temp_result) {
+                result[result_ite++] = *val;
+            }
+            lists[index] = result;
+            curr_inner_ite = result_ite;
         } break;
+
+        // =============================================
+        //                     AND
+        // =============================================
         case AND: {
             da_foreach (task_t, task, tasks) {
                 bool *found = ht_find(&task->tags, temp_sv_to_cstr(next_token));
@@ -337,21 +373,11 @@ task_t **eval_tokens(const tasks_t *tasks, String_View *tokens)
 
             nob_log(INFO, "-------------------------");
 #endif // DEBUG
-            size_t i, j;
-            for (i = 0, j = 0; i < curr_inner_ite && j < prev_inner_ite; ++i, ++j) {
-                task_t *prev_task = lists[index-1][j];
+            for (size_t i = 0; i < curr_inner_ite; ++i) {
                 task_t *next_task = lists[index][i];
-                bool *prev_found = ht_find(&prev_task->tags, temp_sv_to_cstr(next_token));
                 bool *next_found = ht_find(&next_task->tags, temp_sv_to_cstr(prev_token));
 
-                if (prev_found && !ht_find(&temp_result, prev_task->uuid)) {
-#ifdef DEBUG
-                    nob_log(INFO, "prev_task(%s): found matching to both "SV_Fmt " and "SV_Fmt, prev_task->uuid, SV_Arg(prev_token), SV_Arg(next_token));
-#endif // DEBUG
-                    *ht_put(&temp_result, prev_task->uuid) = prev_task;
-                }
-
-                if (next_found && !ht_find(&temp_result, next_task->uuid)) {
+                if (next_found) {
 #ifdef DEBUG
                     nob_log(INFO, "next_task(%s): found matching to both "SV_Fmt " and "SV_Fmt, next_task->uuid, SV_Arg(prev_token), SV_Arg(next_token));
 #endif // DEBUG
@@ -359,33 +385,15 @@ task_t **eval_tokens(const tasks_t *tasks, String_View *tokens)
                 }
             }
 
-            //
-            // If one of the two happen to be bigger than the other, iterate till the end to be sure nothing's be missed
-            //
-            if (i < curr_inner_ite) {
-                for (; i < curr_inner_ite; ++i) {
-                    task_t *next_task = lists[index][i];
-                    bool *next_found = ht_find(&next_task->tags, temp_sv_to_cstr(prev_token));
+            for (size_t j = 0; j < prev_inner_ite; ++j) {
+                task_t *prev_task = lists[index-1][j];
+                bool *prev_found = ht_find(&prev_task->tags, temp_sv_to_cstr(next_token));
 
-                    if (next_found && !ht_find(&temp_result, next_task->uuid)) {
+                if (prev_found) {
 #ifdef DEBUG
-                        nob_log(INFO, "next_task(%s): found matching to both "SV_Fmt " and "SV_Fmt, next_task->uuid, SV_Arg(prev_token), SV_Arg(next_token));
+                    nob_log(INFO, "prev_task(%s): found matching to both "SV_Fmt " and "SV_Fmt, prev_task->uuid, SV_Arg(prev_token), SV_Arg(next_token));
 #endif // DEBUG
-                        *ht_put(&temp_result, next_task->uuid) = next_task;
-                    }
-                }
-            }
-            if (j < prev_inner_ite) {
-                for (; j < prev_inner_ite; ++j) {
-                    task_t *prev_task = lists[index-1][j];
-                    bool *prev_found = ht_find(&prev_task->tags, temp_sv_to_cstr(next_token));
-
-                    if (prev_found && !ht_find(&temp_result, prev_task->uuid)) {
-#ifdef DEBUG
-                        nob_log(INFO, "prev_task(%s): found matching to both "SV_Fmt " and "SV_Fmt, prev_task->uuid, SV_Arg(prev_token), SV_Arg(next_token));
-#endif // DEBUG
-                        *ht_put(&temp_result, prev_task->uuid) = prev_task;
-                    }
+                    *ht_find_or_put(&temp_result, prev_task->uuid) = prev_task;
                 }
             }
 
