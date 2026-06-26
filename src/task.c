@@ -392,7 +392,7 @@ defer:
 }
 
 
-task_t *create_task(const char *path, const char *task_name)
+task_t *create_task(const char *path, const char *task_name, cmdline_opts *opts)
 {
     String_Builder sb = {0};
     task_t *result = calloc(1, sizeof(task_t));
@@ -404,7 +404,7 @@ task_t *create_task(const char *path, const char *task_name)
     sb_appendf(&sb, "# %s\n", task_name);
     sb_appendf(&sb, "\n");
     sb_appendf(&sb, "- STATUS: OPEN\n");
-    sb_appendf(&sb, "- PRIORITY: 1\n");
+    sb_appendf(&sb, "- PRIORITY: 100\n");
     sb_appendf(&sb, "- TAGS: \n\n");
 
     char *dir_name = get_timestamp_uuid();

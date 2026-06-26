@@ -14,8 +14,11 @@ void usage(FILE *stream)
     fprintf(stream, "    summary\n");
     fprintf(stream, "      Summary of the different stats of all tasks available\n");
     fprintf(stream, "\n");
-    fprintf(stream, "    create <title>\n");
+    fprintf(stream, "    new [OPTIONS] <title>\n");
     fprintf(stream, "      Creates a task\n");
+    fprintf(stream, "      OPTIONS:\n");
+    fprintf(stream, "          -t <tags> : Add tags to the new task. Tags are comma seperated without space.\n");
+    fprintf(stream, "          -p <priority> : Change priority from default 100 priority.\n");
     fprintf(stream, "\n");
     fprintf(stream, "    open <task-id>\n");
     fprintf(stream, "      Opens the task specified in your $EDITOR of choice. Default to vim if $EDITOR is not set.\n");
@@ -50,7 +53,7 @@ void parse_options(int argc, char **argv, cmdline_opts *opts)
         } else if (strcmp(flag, "summary") == 0) {
             opts->summary = true;
             break;
-        } else if (strcmp(flag, "create") == 0) {
+        } else if (strcmp(flag, "new") == 0) {
             opts->create_task = shift(argv, argc);
             break;
         } else if (strcmp(flag, "ls") == 0) {

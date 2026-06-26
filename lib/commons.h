@@ -35,5 +35,19 @@
 #include "../thirdparty/flag.h"
 #include "../thirdparty/ht.h"
 
+typedef struct {
+    bool help;
+    bool list_tasks;
+    bool remove_tasks;
+    bool close_tasks;
+    bool summary;
+    char *open_task;
+    char *find_task;
+    char *create_task;
+    char *create_task_tags;
+    char *create_task_priority;
+    Flag_List_Mut filters;
+} cmdline_opts;
+
 #endif // COMMONS_H_
 

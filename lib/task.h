@@ -28,7 +28,7 @@ typedef struct {
 void task_summary();
 void print_task(FILE *stream, task_t *task);
 bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens);
-task_t *create_task(const char *path, const char *task_name);
+task_t *create_task(const char *path, const char *task_name, cmdline_opts *opts);
 bool parse_task(const char *path, const char *uuid, task_t *task);
 bool parse_tasks(const char *path, tasks_t *tasks);
 void free_task(task_t *task);

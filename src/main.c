@@ -45,7 +45,7 @@ int main(int argc, char **argv)
     if (opts.list_tasks) {
         print_tasks(&tasks, &opts.filters);
     } else if (opts.create_task) {
-        task_t *task = create_task(tasks_folder, opts.create_task);
+        task_t *task = create_task(tasks_folder, opts.create_task, &opts);
         if (task->path != NULL) {
             open_task(task);
         }

@@ -4,18 +4,6 @@
 #include "commons.h"
 #include "task.h"
 
-typedef struct {
-    bool help;
-    bool list_tasks;
-    bool remove_tasks;
-    bool close_tasks;
-    bool summary;
-    char *open_task;
-    char *find_task;
-    char *create_task;
-    Flag_List_Mut filters;
-} cmdline_opts;
-
 void usage(FILE *stream);
 void parse_options(int argc, char **argv, cmdline_opts *opts);
 
