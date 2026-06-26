@@ -13,8 +13,8 @@ Needed tasks:
 Once the needed task is done, I'm looking for more keywords to filter by. Here are some that came to mind:
 
 - `""` : default behavior, filters only for `OPEN` tasks ordered by priority.
-- `.all` : filters for both `OPEN` and `CLOSED` tasks
-- `.closed` : filters for only `CLOSED` tasks
+- `.ALL` : filters for both `OPEN` and `CLOSED` tasks
+- `.CLOSED` : filters for only `CLOSED` tasks
 
 Related tasks:
 

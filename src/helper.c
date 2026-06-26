@@ -78,8 +78,8 @@ void parse_options(int argc, char **argv, cmdline_opts *opts)
         } else if (strcmp(flag, "ls") == 0) {
             opts->list_tasks = true;
             break;
-        } else if (strcmp(flag, "open") == 0) {
-            opts->open_task = shift(argv, argc);
+        } else if (strcmp(flag, "edit") == 0) {
+            opts->edit_task = shift(argv, argc);
             break;
         } else if (strcmp(flag, "find") == 0) {
             opts->find_task = shift(argv, argc);

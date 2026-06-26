@@ -52,8 +52,8 @@ int main(int argc, char **argv)
         free_task(task);
     } else if (opts.summary) {
         task_summary();
-    } else if (opts.open_task) {
-        task_t *task = find_task(&tasks, opts.open_task);
+    } else if (opts.edit_task) {
+        task_t *task = find_task(&tasks, opts.edit_task);
         if (!task) return_defer(1);
         open_task(task);
     } else if (opts.find_task) {

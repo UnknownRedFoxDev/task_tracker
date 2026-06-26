@@ -41,7 +41,7 @@ typedef struct {
     bool remove_tasks;
     bool close_tasks;
     bool summary;
-    char *open_task;
+    char *edit_task;
     char *find_task;
     char *create_task;
     char *create_task_tags;

@@ -2,5 +2,5 @@
 
 - STATUS: CLOSED
 - PRIORITY: 100
-- TAGS:
+- TAGS: feature,cmdline-options
 

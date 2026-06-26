@@ -259,7 +259,7 @@ task_t **eval_tokens(const tasks_t *tasks, String_View *tokens)
 #ifdef DEBUG
         nob_log(INFO, "-------------------------");
         nob_log(INFO, "prev: "SV_Fmt ", curr: "SV_Fmt ", next: "SV_Fmt, SV_Arg(prev_token), SV_Arg(curr_token), SV_Arg(next_token));
-        nob_log(INFO, "before modif: %s", boolean_keyword_to_string(curr_mode));
+        nob_log(INFO, "before modif: %s", boolean_keyword_to_string(mode));
 #endif // DEBUG
 
         if (sv_eq(curr_token, sv_from_cstr("not"))) {
@@ -272,11 +272,15 @@ task_t **eval_tokens(const tasks_t *tasks, String_View *tokens)
         } else if (sv_eq(curr_token, sv_from_cstr("or"))) {
             mode = OR;
             next_token = get_next_token(tokens);
-        }
+        } /* else if (sv_eq(curr_token, sv_from_cstr(".TAGGED"))) {
+            mode = NOT;
+            prev_token = sv_from_cstr("not");
+            curr_token = sv_from_cstr(".UNTAGGED");
+        } */
 
 #ifdef DEBUG
         nob_log(INFO, "prev: "SV_Fmt ", curr: "SV_Fmt ", next: "SV_Fmt, SV_Arg(prev_token), SV_Arg(curr_token), SV_Arg(next_token));
-        nob_log(INFO, "after modif: %s", boolean_keyword_to_string(curr_mode));
+        nob_log(INFO, "after modif: %s", boolean_keyword_to_string(mode));
         nob_log(INFO, "-------------------------");
 #endif // DEBUG
 
@@ -345,25 +349,23 @@ bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens)
     bool ignore_default = false;
     bool result = true;
 
-    if (tokens->count > 0) {
-        sv = sv_from_cstr(tokens->items[0]);
-
-        String_View temp_sv = sv_from_cstr(tokens->items[0]);
-        while (temp_sv.count) {
-            String_View tok = sv_chop_by_delim(&temp_sv, ' ');
-            if (sv_eq(tok, sv_from_cstr(".CLOSED"))) {
-                ignore_default = true;
-                break;
-            }
+    for (size_t i = 0; i < tokens->count && !ignore_default; ++i) {
+        if (strcmp(tokens->items[i], ".CLOSED") == 0) {
+            ignore_default = true;
         }
     }
 
-    if (sv.count == 0 || !ignore_default) {
+    if (!ignore_default) {
         sb_appendf(&sb, ".OPEN");
-        if (sv.count > 0) sb_appendf(&sb, " and ");
-        sb_append_sv(&sb, sv);
-        sv = sb_to_sv(sb);
+        if (tokens->count > 0) sb_appendf(&sb, " and ");
     }
+
+    for (size_t i = 0; i < tokens->count; ++i) {
+        sb_appendf(&sb, "%s%s", tokens->items[i], (i == tokens->count -1)? "" : " ");
+    }
+
+    sv = sb_to_sv(sb);
+
 
     // Size of tasks->count; The list may contain holes, or be incomplete due to the filtering
     task_t **list = eval_tokens(tasks, &sv);
