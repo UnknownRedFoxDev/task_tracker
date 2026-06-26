@@ -1,5 +1,5 @@
 # Change create command to new
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 100
 - TAGS:

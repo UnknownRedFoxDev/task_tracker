@@ -45,7 +45,7 @@ typedef struct {
     char *find_task;
     char *create_task;
     char *create_task_tags;
-    char *create_task_priority;
+    int create_task_priority;
     Flag_List_Mut filters;
 } cmdline_opts;
 

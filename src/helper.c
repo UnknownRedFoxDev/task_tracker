@@ -1,4 +1,5 @@
 #include "../lib/task.h"
+#include <stdlib.h>
 #include "../lib/helper.h"
 
 void usage(FILE *stream)
@@ -29,6 +30,9 @@ void usage(FILE *stream)
     fprintf(stream, "    rm <task-id> [<task-id> [<task-id> [...] ] ]\n");
     fprintf(stream, "      Deletes the task(s) specified.\n");
     fprintf(stream, "\n");
+    fprintf(stream, "    del <task-id> [<task-id> [<task-id> [...] ] ]\n");
+    fprintf(stream, "      Same as rm opts.\n");
+    fprintf(stream, "\n");
     fprintf(stream, "    close <task-id> [<task-id> [<task-id> [...] ] ]\n");
     fprintf(stream, "      Closes the task(s) specified.\n");
 }
@@ -54,7 +58,22 @@ void parse_options(int argc, char **argv, cmdline_opts *opts)
             opts->summary = true;
             break;
         } else if (strcmp(flag, "new") == 0) {
-            opts->create_task = shift(argv, argc);
+            opts->create_task_priority = 0;
+            opts->create_task_tags = NULL;
+            while (argc > 0) {
+                flag = shift(argv, argc);
+                if (argc > 0) {
+                    if (strcmp(flag, "-t") == 0) {
+                        opts->create_task_tags = shift(argv, argc);
+                    } else if (strcmp(flag, "-p") == 0) {
+                        opts->create_task_priority = atoi(shift(argv, argc));
+                    } else {
+                        opts->create_task = flag;
+                    }
+                } else {
+                    opts->create_task = flag;
+                }
+            }
             break;
         } else if (strcmp(flag, "ls") == 0) {
             opts->list_tasks = true;
@@ -65,7 +84,7 @@ void parse_options(int argc, char **argv, cmdline_opts *opts)
         } else if (strcmp(flag, "find") == 0) {
             opts->find_task = shift(argv, argc);
             break;
-        } else if (strcmp(flag, "rm") == 0) {
+        } else if (strcmp(flag, "rm") == 0 || strcmp(flag, "del") == 0) {
             opts->remove_tasks = true;
             break;
         } else if (strcmp(flag, "close") == 0) {

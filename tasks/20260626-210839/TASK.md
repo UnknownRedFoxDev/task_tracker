@@ -1,6 +1,6 @@
 # Allow tagging when creating a new task with a '-t' flag
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 100
 - TAGS:
 

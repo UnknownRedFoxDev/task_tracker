@@ -401,11 +401,21 @@ task_t *create_task(const char *path, const char *task_name, cmdline_opts *opts)
         return NULL;
     }
 
+    int priority = 100;
+    if (opts->create_task_priority > 0) {
+        priority = opts->create_task_priority;
+    }
+
+    char *tags = "";
+    if (opts->create_task_tags != NULL) {
+        tags = opts->create_task_tags;
+    }
+
     sb_appendf(&sb, "# %s\n", task_name);
     sb_appendf(&sb, "\n");
     sb_appendf(&sb, "- STATUS: OPEN\n");
-    sb_appendf(&sb, "- PRIORITY: 100\n");
-    sb_appendf(&sb, "- TAGS: \n\n");
+    sb_appendf(&sb, "- PRIORITY: %d\n", priority);
+    sb_appendf(&sb, "- TAGS: %s\n\n", tags);
 
     char *dir_name = get_timestamp_uuid();
     const char *task_path = temp_sprintf("%s%s", path, dir_name);
@@ -437,7 +447,10 @@ bool parse_task(const char *path, const char *uuid, task_t *task)
     String_View sv = {0};
     bool result = true;
 
-    if (!read_entire_file(temp_sprintf("%s%s/TASK.md", path, uuid), &sb)) return_defer(false);
+    if (!read_entire_file(temp_sprintf("%s%s/TASK.md", path, uuid), &sb)) {
+        nob_log(WARNING, "Task(%s) directory was found, but no TASK.md was found inside.", uuid);
+        return_defer(false);
+    }
     sv = sb_to_sv(sb);
 
     task->path = strdup(path);
