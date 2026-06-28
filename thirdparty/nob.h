@@ -1941,7 +1941,7 @@ NOBDEF void nob_cancer_log_handler(Nob_Log_Level level, const char *fmt, va_list
     if (level < nob_minimal_log_level) return;
 
     switch (level) {
-    case NOB_INFO:
+    case NOB_DEBUG:
         fprintf(stderr, "🐞 \x1b[35m[DEBUG]\x1b[0m ");
         break;
     case NOB_INFO:

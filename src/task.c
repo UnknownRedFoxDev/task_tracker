@@ -236,6 +236,27 @@ String_View get_next_token(String_View *sv)
     return result;
 }
 
+size_t eval_tag(const tasks_t *tasks, task_t **result, String_View tag, bool negate_mode)
+{
+    memset(result, 0, tasks->count * sizeof(task_t *));
+    size_t result_ite = 0;
+
+    nob_log(NOB_DEBUG, "-------------------------");
+    nob_log(NOB_DEBUG, "tag: %s" SV_Fmt, (negate_mode)? "not " : "", SV_Arg(tag));
+
+    da_foreach (task_t, task, tasks) {
+        bool *found = ht_find(&task->tags, temp_sv_to_cstr(tag));
+        if ((!found && negate_mode) || (found && !negate_mode)) {
+            if (minimal_log_level == NOB_DEBUG) print_task(stdout, task);
+            result[result_ite++] = task;
+        }
+    }
+
+    nob_log(NOB_DEBUG, "-------------------------");
+
+    return result_ite;
+}
+
 /*
  * 20260621-110728:
  * When doing `not <tag>` or `<tag1> and <tag2>` or `<tag1> or <tag2>`, I'm not comparing tags, I'm comparing lists created from the tags and filtering the remainder
@@ -252,73 +273,92 @@ task_t **eval_tokens(const tasks_t *tasks, String_View *tokens)
     String_View prev_token = {0};
     String_View curr_token = {0};
     String_View next_token = {0};
-    boolean_keywords mode = NONE;
+    boolean_keywords prev_mode = NONE;
+    boolean_keywords curr_mode = NONE;
+    boolean_keywords next_mode = NONE;
+
+    nob_log(NOB_DEBUG, "Tokens: " SV_Fmt, SV_Arg(*tokens));
 
     while (tokens->count) {
         curr_token = sv_chop_by_delim(tokens, ' ');
-#ifdef DEBUG
-        nob_log(INFO, "-------------------------");
-        nob_log(INFO, "prev: "SV_Fmt ", curr: "SV_Fmt ", next: "SV_Fmt, SV_Arg(prev_token), SV_Arg(curr_token), SV_Arg(next_token));
-        nob_log(INFO, "before modif: %s", boolean_keyword_to_string(mode));
-#endif // DEBUG
 
+        nob_log(NOB_DEBUG, "before modif: %s", boolean_keyword_to_string(curr_mode));
+        nob_log(NOB_DEBUG, "prev: "SV_Fmt ", curr: "SV_Fmt ", next: "SV_Fmt, SV_Arg(prev_token), SV_Arg(curr_token), SV_Arg(next_token));
+        nob_log(NOB_DEBUG, "-------------------------");
+
+        // TODO: Add support for .TAGGED tag
         if (sv_eq(curr_token, sv_from_cstr("not"))) {
-            mode = NOT;
+            curr_mode = NOT;
             prev_token = curr_token;
             curr_token = get_next_token(tokens);
         } else if (sv_eq(curr_token, sv_from_cstr("and"))) {
-            mode = AND;
+            curr_mode = AND;
             next_token = get_next_token(tokens);
         } else if (sv_eq(curr_token, sv_from_cstr("or"))) {
-            mode = OR;
+            curr_mode = OR;
             next_token = get_next_token(tokens);
-        } /* else if (sv_eq(curr_token, sv_from_cstr(".TAGGED"))) {
-            mode = NOT;
-            prev_token = sv_from_cstr("not");
-            curr_token = sv_from_cstr(".UNTAGGED");
-        } */
+        }
 
-#ifdef DEBUG
-        nob_log(INFO, "prev: "SV_Fmt ", curr: "SV_Fmt ", next: "SV_Fmt, SV_Arg(prev_token), SV_Arg(curr_token), SV_Arg(next_token));
-        nob_log(INFO, "after modif: %s", boolean_keyword_to_string(mode));
-        nob_log(INFO, "-------------------------");
-#endif // DEBUG
+        nob_log(NOB_DEBUG, "after modif: %s", boolean_keyword_to_string(curr_mode));
+        nob_log(NOB_DEBUG, "prev: "SV_Fmt ", curr: "SV_Fmt ", next: "SV_Fmt, SV_Arg(prev_token), SV_Arg(curr_token), SV_Arg(next_token));
+        nob_log(NOB_DEBUG, "-------------------------");
 
         if (prev_token.count && prev_token.data[0] == '.') sv_chop_left(&prev_token, 1);
         if (curr_token.data[0] == '.') sv_chop_left(&curr_token, 1);
         if (next_token.count && next_token.data[0] == '.') sv_chop_left(&next_token, 1);
-        switch (mode) {
+        switch (curr_mode) {
         case NONE: // Passthrough
         case NOT: {
-            da_foreach (task_t, task, tasks) {
-                bool *found = ht_find(&task->tags, temp_sv_to_cstr(curr_token));
-                if ((!found && mode == NOT) || (found && mode == NONE)) {
-                    result[result_ite++] = task;
-                }
-            }
+            result_ite = eval_tag(tasks, result, curr_token, (curr_mode == NOT));
         } break;
 
         case AND: // Passthrough
         case OR: {
-            da_foreach (task_t, task, tasks) {
-                bool *next_found = ht_find(&task->tags, temp_sv_to_cstr(next_token));
-                bool *prev_found = ht_find(&task->tags, temp_sv_to_cstr(prev_token));
-                if (next_found && (mode == OR || (prev_found && mode == AND))) {
-                    *ht_put(&ht_tasks_set, task->uuid) = task;
-                }
+            if (sv_eq(next_token, sv_from_cstr("TAGGED"))) {
+                next_mode = NOT;
+                next_token = sv_from_cstr("UNTAGGED");
+            } else if (sv_eq(next_token, sv_from_cstr("all"))) {
+                curr_mode = OR;
+                curr_token = sv_from_cstr("or");
+                next_token = sv_from_cstr("CLOSED");
             }
 
-            for (size_t j = 0; j < prev_inner_ite; ++j) {
-                task_t *prev_task = result[j];
-                bool *prev_found = ht_find(&prev_task->tags, temp_sv_to_cstr(next_token));
+            if (sv_eq(next_token, sv_from_cstr("not"))) {
+                next_mode = NOT;
+                next_token = get_next_token(tokens);
+            }
 
-                if (prev_found && !ht_find(&ht_tasks_set, prev_task->uuid)) {
+            nob_log(NOB_DEBUG, "previous tasks: %s" SV_Fmt, (prev_mode == NOT)? "not " : "", SV_Arg(prev_token));
+            for (size_t i = 0; i < prev_inner_ite; ++i) {
+                task_t *prev_task = result[i];
+                bool *found = ht_find(&prev_task->tags, temp_sv_to_cstr(next_token));
+
+                if (curr_mode == OR || (((!found && next_mode == NOT) || (found && next_mode != NOT)))) {
+                    if (minimal_log_level == NOB_DEBUG) print_task(stdout, prev_task);
                     *ht_put(&ht_tasks_set, prev_task->uuid) = prev_task;
                 }
             }
+            nob_log(NOB_DEBUG, "-------------------------");
 
-            memset(result, 0, prev_inner_ite * sizeof(task_t *));
+            // Parsing the next tasks having the tag from `next_token` once the previous tasks were tested
+            result_ite = eval_tag(tasks, result, next_token, (next_mode == NOT));
 
+            nob_log(NOB_DEBUG, "next tasks: %s" SV_Fmt, (next_mode == NOT)? "not " : "", SV_Arg(next_token));
+            for (size_t i = 0; i < result_ite; ++i) {
+                task_t *next_task = result[i];
+                bool *found = ht_find(&next_task->tags, temp_sv_to_cstr(prev_token));
+
+                // If task has the tag from `prev_token` and `AND` mode is enabled. Otherwise just put it in the HTable
+                if (curr_mode == OR || (((!found && prev_mode == NOT) || (found && prev_mode != NOT)) && curr_mode == AND)) {
+                    if (minimal_log_level == NOB_DEBUG) print_task(stdout, result[i]);
+                    *ht_find_or_put(&ht_tasks_set, next_task->uuid) = next_task;
+                }
+            }
+            nob_log(NOB_DEBUG, "-------------------------");
+
+            // Put the HTable's found tasks into the result array
+            memset(result, 0, result_ite * sizeof(task_t *));
+            result_ite = 0;
             ht_foreach(val, &ht_tasks_set) {
                 result[result_ite++] = *val;
             }
@@ -330,10 +370,19 @@ task_t **eval_tokens(const tasks_t *tasks, String_View *tokens)
             UNREACHABLE("boolean_keywords: curr_token in print_tasks()");
         }
 
+        prev_mode = curr_mode;
         prev_inner_ite = result_ite;
         result_ite = 0;
         prev_token = curr_token;
     }
+
+    nob_log(NOB_DEBUG, "Result: ");
+    if (minimal_log_level == NOB_DEBUG) {
+        for (size_t i = 0; i < prev_inner_ite; ++i) {
+            print_task(stdout, result[i]);
+        }
+    }
+    nob_log(NOB_DEBUG, "-------------------------");
 
     return result;
 }
@@ -342,7 +391,7 @@ bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens)
 {
     // TODO: rewrite it to take into account the new nomenclature: .<tag>, and, or, not
     //       "pre-defined tags: .OPEN, .CLOSED (not .OPEN), .TAGGED, .UNTAGGED (not .TAGGED)
-    //       "by default: .OPEN and (.TAGGED or .UNTAGGED)
+    //       "by default: .OPEN
 
     String_View sv = {0};
     String_Builder sb = {0};
@@ -425,7 +474,11 @@ task_t *create_task(const char *path, const char *task_name, cmdline_opts *opts)
 
     minimal_log_level = ERROR;
     if (!mkdir_if_not_exists(task_path)) goto defer;
+#ifdef DEBUG
+    minimal_log_level = NOB_DEBUG;
+#else
     minimal_log_level = INFO;
+#endif // DEBUG
     if (!write_entire_file(task_md, sb.items, sb.count)) goto defer;
 
     result->name = strdup(task_name);

@@ -1,6 +1,6 @@
 # Add addition filtering keywords
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 30
 - TAGS: filters,feature
 

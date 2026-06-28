@@ -37,8 +37,11 @@ int main(int argc, char **argv)
     const char *tasks_folder = find_tasks_dir();
     minimal_log_level = ERROR;
     mkdir_if_not_exists(tasks_folder);
+#ifdef DEBUG
+    minimal_log_level = NOB_DEBUG;
+#else
     minimal_log_level = INFO;
-
+#endif // DEBUG
 
     if (!parse_tasks(tasks_folder, &tasks)) return_defer(1);
 
