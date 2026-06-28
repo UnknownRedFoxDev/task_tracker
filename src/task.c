@@ -397,21 +397,27 @@ task_t **eval_tokens(const tasks_t *tasks, String_View *tokens)
     return result;
 }
 
+// pre-defined tags: .OPEN, .CLOSED, .UNTAGGED, .TAGGED (not .UNTAGGED)
+// by default: .OPEN
 bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens, bool reversed)
 {
-    // TODO: rewrite it to take into account the new nomenclature: .<tag>, and, or, not
-    //       "pre-defined tags: .OPEN, .CLOSED (not .OPEN), .TAGGED, .UNTAGGED (not .TAGGED)
-    //       "by default: .OPEN
 
     String_View sv = {0};
     String_Builder sb = {0};
     bool ignore_default = false;
     bool result = true;
 
-    for (size_t i = 0; i < tokens->count && !ignore_default; ++i) {
-        if (strcmp(tokens->items[i], ".CLOSED") == 0) {
+    {
+        String_Builder temp_sb = {0};
+        for (size_t i = 0; i < tokens->count; ++i) {
+            sb_appendf(&temp_sb, "%s ", tokens->items[i]);
+        }
+
+        if (strstr(temp_sb.items, ".CLOSED") || strstr(temp_sb.items, "not .OPEN")) {
             ignore_default = true;
         }
+
+        free(temp_sb.items);
     }
 
     if (!ignore_default) {
@@ -431,20 +437,25 @@ bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens, bool reversed)
     task_t *ordered = NULL;
     if (!list) return_defer(false);
 
-    size_t n;
-    for (n = 0; n < tasks->count && list[n] != NULL; ++n);
-    ordered = calloc(n, sizeof(task_t));
-    for (size_t i = 0; i < n; ++i)
-        ordered[i] = *list[i];
+    size_t n = 0;
+    while (list[n]) ++n;
 
-defer:
-    if (reversed) qsort(ordered, n, sizeof(task_t), cmp_tasks_rev_void);
-    else qsort(ordered, n, sizeof(task_t), cmp_tasks_void);
+    if (n > 0) {
+        ordered = calloc(n, sizeof(task_t));
+        for (size_t i = 0; i < n; ++i)
+            ordered[i] = *list[i];
 
-    for (size_t i = 0; i < n; ++i) {
-        print_task(stdout, &ordered[i]);
+        if (reversed) qsort(ordered, n, sizeof(task_t), cmp_tasks_rev_void);
+        else qsort(ordered, n, sizeof(task_t), cmp_tasks_void);
+
+        for (size_t i = 0; i < n; ++i) {
+            print_task(stdout, &ordered[i]);
+        }
+    } else {
+        nob_log(INFO, "No tasks fitting your query (\"%s\") were found", sb.items);
     }
 
+defer:
     if (result) {
         free(list);
         free(ordered);
