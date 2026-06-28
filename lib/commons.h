@@ -38,6 +38,7 @@
 typedef struct {
     bool help;
     bool list_tasks;
+    bool list_tasks_reversed;
     bool remove_tasks;
     bool close_tasks;
     bool summary;

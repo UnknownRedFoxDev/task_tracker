@@ -1,7 +1,7 @@
 # Find cwd and search recursively from it the 'tasks/' directory.
 
 - STATUS: CLOSED
-- PRIORITY: 10
+- PRIORITY: 85
 - TAGS: internal-rework
 
 Tasks directory should always be at the cwd. Aka, if at at a project's root, you should have:

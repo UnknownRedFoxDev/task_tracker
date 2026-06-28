@@ -190,6 +190,16 @@ int cmp_tasks_void(const void *t1, const void *t2)
     return cmp_tasks((const task_t *)t1, (const task_t *)t2);
 }
 
+int cmp_tasks_rev(const task_t *t1, const task_t *t2)
+{
+    return t1->priority - t2->priority;
+}
+
+int cmp_tasks_rev_void(const void *t1, const void *t2)
+{
+    return cmp_tasks_rev((const task_t *)t1, (const task_t *)t2);
+}
+
 int cmp_tasks_a(const struct task_distance *t1, const struct task_distance *t2)
 {
     return t2->task->priority - t1->task->priority;
@@ -387,7 +397,7 @@ task_t **eval_tokens(const tasks_t *tasks, String_View *tokens)
     return result;
 }
 
-bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens)
+bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens, bool reversed)
 {
     // TODO: rewrite it to take into account the new nomenclature: .<tag>, and, or, not
     //       "pre-defined tags: .OPEN, .CLOSED (not .OPEN), .TAGGED, .UNTAGGED (not .TAGGED)
@@ -428,7 +438,9 @@ bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens)
         ordered[i] = *list[i];
 
 defer:
-    qsort(ordered, n, sizeof(task_t), cmp_tasks_void);
+    if (reversed) qsort(ordered, n, sizeof(task_t), cmp_tasks_rev_void);
+    else qsort(ordered, n, sizeof(task_t), cmp_tasks_void);
+
     for (size_t i = 0; i < n; ++i) {
         print_task(stdout, &ordered[i]);
     }

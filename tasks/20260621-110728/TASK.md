@@ -1,7 +1,7 @@
 # Replace filter system to use .<str> for tag filtering and tokenized those to use 'and' and 'or' and 'not'
 
 - STATUS: CLOSED
-- PRIORITY: 80
+- PRIORITY: 90
 - TAGS: filters,tags-system,internal-rework
 
 User should be able to call this program as such:

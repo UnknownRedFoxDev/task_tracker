@@ -1,7 +1,7 @@
 # Eval tag filter in a non-destructive way
 
 - STATUS: CLOSED
-- PRIORITY: 100
+- PRIORITY: 120
 - TAGS: filters,internal-rework
 
 Say:

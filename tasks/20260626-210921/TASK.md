@@ -1,6 +1,6 @@
 # Change default priority to 100 - Allow priorty flag like '-p'
 
 - STATUS: CLOSED
-- PRIORITY: 100
+- PRIORITY: 45
 - TAGS: feature,cmdline-options
 

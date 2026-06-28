@@ -77,8 +77,17 @@ void parse_options(int argc, char **argv, cmdline_opts *opts)
             break;
         } else if (strcmp(flag, "ls") == 0) {
             opts->list_tasks = true;
+            opts->list_tasks_reversed = false;
+            break;
+        } else if (strcmp(flag, "ls-rev") == 0) {
+            opts->list_tasks = true;
+            opts->list_tasks_reversed = true;
             break;
         } else if (strcmp(flag, "edit") == 0) {
+            if (!argc) {
+                nob_log(ERROR, "No task-id was provided");
+                exit(1);
+            }
             opts->edit_task = shift(argv, argc);
             break;
         } else if (strcmp(flag, "find") == 0) {

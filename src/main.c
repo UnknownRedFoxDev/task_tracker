@@ -45,8 +45,8 @@ int main(int argc, char **argv)
 
     if (!parse_tasks(tasks_folder, &tasks)) return_defer(1);
 
-    if (opts.list_tasks) {
-        print_tasks(&tasks, &opts.filters);
+    if (opts.list_tasks || opts.list_tasks_reversed) {
+        print_tasks(&tasks, &opts.filters, opts.list_tasks_reversed);
     } else if (opts.create_task) {
         task_t *task = create_task(tasks_folder, opts.create_task, &opts);
         if (task->path != NULL) {

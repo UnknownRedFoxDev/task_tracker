@@ -1,5 +1,5 @@
 # Change create command to new
 
 - STATUS: CLOSED
-- PRIORITY: 100
-- TAGS:
+- PRIORITY: 50
+- TAGS: cmdline-options

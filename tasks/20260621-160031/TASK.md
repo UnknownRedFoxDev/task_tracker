@@ -1,6 +1,6 @@
-# Add a 'ls-rev' or 'ls-inv' to have priority ordered list reversed/inverted
+# Add a 'ls-rev' to have priority ordered list reversed
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 10
 - TAGS: feature,cmdline-options
 
@@ -10,13 +10,6 @@ Either:
 ```bash
 ./tatr ls-rev [filters]
 ```
-
-or
-
-```bash
-./tatr ls-inv [filters]
-```
-
 # What it does
 
 Whatever I feel is the best when I'll get to it.
