@@ -2,7 +2,7 @@
 
 - STATUS: CLOSED
 - PRIORITY: 69
-- TAGS: asap,important
+- TAGS: internal-rework,cmdline-options,filters
 
 If the string given is empty/missing, print all tasks
 If the string given corresponds to the status, either CLOSED or OPEN, filter by such

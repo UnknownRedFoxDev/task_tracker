@@ -12,6 +12,9 @@ void usage(FILE *stream)
     fprintf(stream, "    ls\n");
     fprintf(stream, "      Lists all tasks. Filters as strings can be passed to filter tasks by name, status and tags\n");
     fprintf(stream, "\n");
+    fprintf(stream, "    ls-rev\n");
+    fprintf(stream, "      Works similarly to `ls` but prints the tasks in the reverse order of priority\n");
+    fprintf(stream, "\n");
     fprintf(stream, "    summary\n");
     fprintf(stream, "      Summary of the different stats of all tasks available\n");
     fprintf(stream, "\n");
@@ -21,7 +24,7 @@ void usage(FILE *stream)
     fprintf(stream, "          -t <tags> : Add tags to the new task. Tags are comma seperated without space.\n");
     fprintf(stream, "          -p <priority> : Change priority from default 100 priority.\n");
     fprintf(stream, "\n");
-    fprintf(stream, "    open <task-id>\n");
+    fprintf(stream, "    edit <task-id>\n");
     fprintf(stream, "      Opens the task specified in your $EDITOR of choice. Default to vim if $EDITOR is not set.\n");
     fprintf(stream, "\n");
     fprintf(stream, "    find <task-id>\n");
@@ -54,7 +57,7 @@ void parse_options(int argc, char **argv, cmdline_opts *opts)
         if (strcmp(flag, "help") == 0) {
             opts->help = true;
             break;
-        } else if (strcmp(flag, "summary") == 0) {
+        } else if (strcmp(flag, "summary") == 0 || strcmp(flag, "sum") == 0) {
             opts->summary = true;
             break;
         } else if (strcmp(flag, "new") == 0) {
