@@ -35,6 +35,10 @@ int main(int argc, char **argv)
     parse_options(argc, argv, &opts);
 
     const char *tasks_folder = find_tasks_dir();
+    if (tasks_folder == NULL) {
+        nob_log(ERROR, "Failed to locate tasks folder");
+        exit(1);
+    }
     minimal_log_level = ERROR;
     mkdir_if_not_exists(tasks_folder);
 #ifdef DEBUG

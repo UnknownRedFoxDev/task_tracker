@@ -413,7 +413,7 @@ bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens, bool reversed)
             sb_appendf(&temp_sb, "%s ", tokens->items[i]);
         }
 
-        if (strstr(temp_sb.items, ".CLOSED") || strstr(temp_sb.items, "not .OPEN")) {
+        if (temp_sb.count > 0 && (strstr(temp_sb.items, ".CLOSED") || strstr(temp_sb.items, "not .OPEN"))) {
             ignore_default = true;
         }
 
