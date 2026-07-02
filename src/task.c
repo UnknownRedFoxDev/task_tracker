@@ -1,3 +1,4 @@
+#include <ctype.h>
 #define HT_IMPLEMENTATION
 #include "../lib/task.h"
 #include "../lib/helper.h"
@@ -22,7 +23,15 @@ task_t *find_task(tasks_t *tasks, const char *uuid)
 
 bool remove_task(task_t *task)
 {
-    if (!delete_directory_recursively(temp_sprintf("%s%s", task->path, task->uuid))) return false;
+    minimal_log_level = ERROR;
+    if (!delete_directory_recursively(temp_sprintf("%s/%s", task->path, task->uuid))) return false;
+#ifdef DEBUG
+    minimal_log_level = DEBUG;
+#else
+    minimal_log_level = INFO;
+#endif // DEBUG
+
+    nob_log(INFO, "Deleted task(%s): %s", task->uuid, task->name);
     return true;
 }
 
@@ -42,7 +51,7 @@ bool remove_tasks(tasks_t *tasks, Flag_List_Mut *tasks_uuid)
 
 bool close_task(task_t *task)
 {
-    const char *task_md_path = temp_sprintf("%s%s/TASK.md", task->path, task->uuid);
+    const char *task_md_path = temp_sprintf("%s/%s/TASK.md", task->path, task->uuid);
     String_Builder sb = {0};
     String_Builder temp_sb = {0};
     bool result = true;
@@ -64,6 +73,8 @@ bool close_task(task_t *task)
     sb_append_buf(&sb, temp_sb.items, temp_sb.count);
 
     if (!write_entire_file(task_md_path, sb.items, sb.count)) return_defer(false);
+
+    nob_log(INFO, "Closed task(%s): %s", task->uuid, task->name);
 
 defer:
     free(sb.items);
@@ -96,7 +107,7 @@ bool open_task(task_t *task)
     } else {
         cmd_append(&cmd, "vim");
     }
-    cmd_append(&cmd, temp_sprintf("%s%s/TASK.md", task->path, task->uuid));
+    cmd_append(&cmd, temp_sprintf("%s/%s/TASK.md", task->path, task->uuid));
     if (!cmd_run(&cmd)) result = false;
 
     free(cmd.items);
@@ -492,7 +503,7 @@ task_t *create_task(const char *path, const char *task_name, cmdline_opts *opts)
     sb_appendf(&sb, "- TAGS: %s\n\n", tags);
 
     char *dir_name = get_timestamp_uuid();
-    const char *task_path = temp_sprintf("%s%s", path, dir_name);
+    const char *task_path = temp_sprintf("%s/%s", path, dir_name);
     const char *task_md = temp_sprintf("%s/TASK.md", task_path);
 
     minimal_log_level = ERROR;
@@ -525,7 +536,7 @@ bool parse_task(const char *path, const char *uuid, task_t *task)
     String_View sv = {0};
     bool result = true;
 
-    if (!read_entire_file(temp_sprintf("%s%s/TASK.md", path, uuid), &sb)) {
+    if (!read_entire_file(temp_sprintf("%s/%s/TASK.md", path, uuid), &sb)) {
         nob_log(WARNING, "Task(%s) directory was found, but no TASK.md was found inside.", uuid);
         return_defer(false);
     }
@@ -611,4 +622,44 @@ void free_tasks(tasks_t *tasks)
     }
     free(tasks->items);
     ht_free(&__g_stats);
+}
+
+void init_directory(const char *tasks_dir)
+{
+    bool create_dir = true;
+    const char *cwd = get_current_dir_temp();
+    char *parent_tasks_dir = NULL;
+
+    if (tasks_dir) {
+        create_dir = false;
+        parent_tasks_dir = get_parent_dir(tasks_dir);
+        if (strcmp(cwd, parent_tasks_dir) == 0) {
+            nob_log(ERROR, "tasks/ directory was already found in the current working directory.");
+            free(parent_tasks_dir);
+            return ;
+        }
+
+        char user_choice = 'n';
+        nob_log(WARNING, "A tasks/ directory has been found at: %s/", tasks_dir);
+        do {
+            printf("[INFO] Do you still wish to initialize here? (y/N) : ");
+            scanf("%c", &user_choice);
+            if (user_choice == '\n') user_choice = 'n';
+            user_choice = tolower(user_choice);
+        } while (user_choice != 'y' && user_choice != 'n');
+
+        switch (user_choice) {
+            case 'n': {
+                nob_log(INFO, "Initialization procedure was cancelled");
+            } break;
+            case 'y': {
+                create_dir = true;
+            } break;
+        }
+    }
+
+    if (create_dir) {
+        mkdir_if_not_exists(temp_sprintf("%s/tasks", cwd));
+    }
+    free(parent_tasks_dir);
 }

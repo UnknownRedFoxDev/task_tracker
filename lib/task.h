@@ -39,5 +39,6 @@ bool close_tasks(tasks_t *tasks, Flag_List_Mut *tasks_uuid);
 bool remove_task(task_t *task);
 bool remove_tasks(tasks_t *tasks, Flag_List_Mut *tasks_uuid);
 bool open_task(task_t *task);
+void init_directory(const char *tasks_dir);
 
 #endif // TASK_H_

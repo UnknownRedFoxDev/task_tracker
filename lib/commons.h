@@ -40,6 +40,7 @@ typedef struct {
     bool list_tasks;
     bool list_tasks_reversed;
     bool remove_tasks;
+    bool init_dir;
     bool close_tasks;
     bool summary;
     char *edit_task;

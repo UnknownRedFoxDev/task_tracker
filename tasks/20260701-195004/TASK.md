@@ -1,6 +1,6 @@
 # Create a new cmdline option 'init' to initialize a 'tasks/' directory if it does not exists
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 70
 - TAGS: feature,cmdline-options
 
