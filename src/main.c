@@ -3,28 +3,93 @@
 #include "../lib/task.h"
 #include "../lib/helper.h"
 
-const char *find_tasks_dir()
+char *tasks_path_search(const char *cwd)
 {
-    const char *cwd = get_current_dir_temp();
     File_Paths paths = {0};
+    char *result = NULL;
 
     if (!read_entire_dir(cwd, &paths)) return NULL;
 
     da_foreach (const char *, path, &paths) {
-        Nob_File_Type ft = nob_get_file_type(*path);
-        if (strstr(*path, "tasks") != NULL) {
-            return temp_sprintf("./%s/", *path);
-        } else if (ft == NOB_FILE_DIRECTORY && *path[0] != '.') { // Exclude '.', '..', '.git', etc
-            File_Paths childrens = {0};
-            if (!read_entire_dir(*path, &childrens)) return NULL;
-            da_foreach(const char *, sub_path, &childrens) {
-                if (strstr(*sub_path, "tasks") != NULL) {
-                    return temp_sprintf("./%s/%s/", *path, *sub_path);
-                }
+        const char *full_path = temp_sprintf("%s/%s", cwd, *path);
+        Nob_File_Type ft = nob_get_file_type(full_path);
+
+        if (ft == NOB_FILE_DIRECTORY && strstr(*path, "tasks") != NULL) {
+            result = temp_sprintf("%s/", full_path);
+        }
+
+        if (result != NULL) break;
+    }
+
+    free(paths.items);
+    return result;
+}
+
+char *recursive_descend_tasks_path_search(const char *cwd, int depth, const char *excluded_path)
+{
+    File_Paths paths = {0};
+    char *result = NULL;
+
+    // Search for the current directories inside the cwd
+    result = tasks_path_search(cwd);
+
+    if (result == NULL && depth > 0) {
+        if (!read_entire_dir(cwd, &paths)) return_defer(NULL);
+
+        da_foreach (const char *, path, &paths) {
+            const char *full_path = temp_sprintf("%s/%s", cwd, *path);
+            if (excluded_path != NULL && strcmp(full_path, excluded_path) == 0) {
+                continue;
+            }
+
+            Nob_File_Type ft = nob_get_file_type(full_path);
+            if (ft == NOB_FILE_DIRECTORY && *path[0] != '.') { // Exclude '.', '..', '.git', etc
+                if ((result = recursive_descend_tasks_path_search(full_path, depth-1, excluded_path)) != NULL) break;
             }
         }
     }
-    return NULL;
+
+defer:
+    return result;
+}
+
+char *get_parent_dir(const char *cwd)
+{
+    String_View new_cwd = sv_from_cstr(cwd);
+    while (new_cwd.items[new_cwd.count - 1] != '/') {
+        sv_chop_right(&new_cwd, 1);
+    }
+    sv_chop_right(&new_cwd, 1);
+
+    return strdup(temp_sv_to_cstr(new_cwd));
+}
+
+char *find_tasks_dir(const char *cwd)
+{
+    // Do an initial downward search from the cwd
+    char *result = recursive_descend_tasks_path_search(cwd, 2, NULL);
+
+    // If no tasks folder is found, go up
+    // cwd: root/src/
+    // parent: root/
+    // inside parent: root/build, root/tasks, root/resources, root/src, ...
+    //                                ^
+    //                                We search for that directory
+    //
+    // That search goes up by at most 2 levels up. We won't try to search higher.
+    if (result == NULL) {
+        char *cwd_parent_dir = get_parent_dir(cwd);
+        result = recursive_descend_tasks_path_search(cwd_parent_dir, 3, cwd);
+
+        if (result == NULL) {
+            char *parent_parent_dir = get_parent_dir(cwd_parent_dir);
+            result = recursive_descend_tasks_path_search(parent_parent_dir, 4, parent_parent_dir);
+            free(parent_parent_dir);
+        }
+        free(cwd_parent_dir);
+    }
+
+    return strdup(result);
 }
 
 int main(int argc, char **argv)
@@ -34,25 +99,27 @@ int main(int argc, char **argv)
     int result = 0;
     parse_options(argc, argv, &opts);
 
-    const char *tasks_folder = find_tasks_dir();
-    if (tasks_folder == NULL) {
+    const char *cwd = get_current_dir_temp();
+    char *tasks_dir = find_tasks_dir(cwd);
+    if (tasks_dir == NULL) {
         nob_log(ERROR, "Failed to locate tasks folder");
         exit(1);
     }
+
     minimal_log_level = ERROR;
-    mkdir_if_not_exists(tasks_folder);
+    mkdir_if_not_exists(tasks_dir);
 #ifdef DEBUG
     minimal_log_level = NOB_DEBUG;
 #else
     minimal_log_level = INFO;
 #endif // DEBUG
 
-    if (!parse_tasks(tasks_folder, &tasks)) return_defer(1);
+    if (!parse_tasks(tasks_dir, &tasks)) return_defer(1);
 
     if (opts.list_tasks || opts.list_tasks_reversed) {
         print_tasks(&tasks, &opts.filters, opts.list_tasks_reversed);
     } else if (opts.create_task) {
-        task_t *task = create_task(tasks_folder, opts.create_task, &opts);
+        task_t *task = create_task(tasks_dir, opts.create_task, &opts);
         if (task->path != NULL) {
             open_task(task);
         }
@@ -75,5 +142,6 @@ int main(int argc, char **argv)
 
 defer:
     free_tasks(&tasks);
+    free(tasks_dir);
     return result;
 }

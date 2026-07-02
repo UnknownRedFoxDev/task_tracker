@@ -45,7 +45,6 @@ void parse_options(int argc, char **argv, cmdline_opts *opts)
     // Just calling the program
     if (argc < 2) {
         opts->list_tasks = true;
-        da_append(&opts->filters, "");
         return ;
     }
 
