@@ -62,5 +62,100 @@ tasks of (
       or
       tasks of .debug
     )
+# The bigger picture
 
-It's 2 am, nearly 3 am, when you wake up, go search how they parse if expression while taking into account parenthesis, and remember, **no AI**, not even the preview. Always in `-ai` in your queries.
+This change is bigger than expected and actually needs me to totally rework the parsing system:
+
+First step is to re-organize the query in a tree like representation:
+
+.CLOSED and (.feature or .bug) ->                and
+                                              /       \
+                                       .CLOSED         or
+                                                     /    \
+                                             .feature      .bug
+
+                                    = and .CLOSED or .feature .bug
+
+Basically that or like the Reverse Polish Notation: .feature .bug or .CLOSED and
+
+A token:
+
+struct Token {
+    val: const char *;
+    type: Token_Type;
+};
+
+enum Token_Type {
+    TOKEN_TAG,
+    TOKEN_NOT,
+    TOKEN_AND,
+    TOKEN_OR,
+};
+
+struct Tokens {
+    items: Token *;
+    count: size_t;
+    capacity: size_t;
+};
+
+When parsing the query:
+- `.CLOSED and .feature`
+
+encounter: .CLOSED  -> starts with a '.' == TOKEN_TAG
+encounter: and      -> TOKEN_AND
+encounter: .feature -> starts with a '.' == TOKEN_TAG
+
+when 'and' is encountered:
+prev: .CLOSED
+next: .feature
+
+tokens: ["and", ".CLOSED", ".feature"]
+=              and
+      .CLOSED       .feature
+
+- `.CLOSED and (.feature or .bug)`
+
+encounter: .CLOSED  -> starts with a '.' == TOKEN_TAG
+encounter: and      -> TOKEN_AND
+tokens: ["and", ".CLOSED"]
+
+encounter: (.feature -> starts with a '(':
+    remove '(' and start back from this tag until matching ')' is found
+    encounter: .feature -> starts with a '.' == TOKEN_TAG
+    encounter: or       -> TOKEN_OR
+    encounter: .bug)    -> ends with ')', starts with '.' == TOKEN_TAG
+    new_tokens: ["or", ".feature", ".bug"]
+
+tokens: ["and", ".CLOSED", "or", ".feature", ".bug"]
+=                   and
+        .CLOSED              or
+                     .feature  .bug
+
+- `.CLOSED and .feature or .bug`
+
+encounter: .CLOSED  -> starts with a '.' == TOKEN_TAG
+encounter: and      -> TOKEN_AND
+encounter: .feature -> starts with a '.' == TOKEN_TAG
+
+when 'and' is encountered:
+prev: .CLOSED
+next: .feature
+tokens: ["and", ".CLOSED", ".feature"]
+
+encounter: or  -> TOKEN_OR
+encounter: .bug -> starts with a '.' == TOKEN_TAG
+
+when 'and' is encountered:
+prev: .feature
+next: .bug
+
+tokens: ["and", ".CLOSED", ".feature", "or", ".bug"]
+expected: ["or", ".bug", "and", ".feature", ".CLOSED"]
+=            or
+  .bug                and
+             .feature     .CLOSED
+
+but it should give: or .bug and .feature .CLOSED
+
+It searches the tree in prefix
+To note that `and` has more precendence over `or`
