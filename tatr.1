@@ -1,0 +1,176 @@
+.TH TATR 1 tatr\-0.1
+.SH NAME
+tatr \- a task tracker tooling to keep track of your tasks
+.SH SYNOPSIS
+.B tatr
+.br
+.B tatr
+.B help
+.br
+.B tatr
+.B init
+.br
+.B tatr
+.B ls
+.RI [\| "ls options" \|]
+.br
+.B tatr edit
+.I <task-id>
+.br
+.B tatr
+.B find
+.IR <task-id>
+.br
+.B tatr
+.B new
+.RI [\| "new options" \|]
+.I \&"title\|"\&
+.br
+.B tatr
+.B close
+.I <task-id>
+\&.\|.\|.\&
+.br
+.B tatr
+.B rm
+.I <task-id>
+\&.\|.\|.\&
+.br
+.B tatr
+.B del
+.I <task-id>
+\&.\|.\|.\&
+.br
+.B tatr
+.B summary
+.SH DESCRIPTION
+.B tatr
+is a task tracker utility tooling. It enables the end-user to track the up-and-coming tasks to do. The tooling can create
+.B new
+tasks,
+.B list
+them using filters,
+.B find
+a task by its
+.IR id .
+The user can also
+.B edit
+a task also by its
+.IR id ,
+.B close
+it,
+.B delete
+or
+.B remove
+it, or multiple at once.
+.P
+This tool is a replacement for the issue tracker that github has. Basically a, \&"Mom can we have Github's\&
+.IR "issue tracker" ?
+No, we have
+.I "issue tracker"
+\&at home.\|"\&
+.P
+Although, to note that this tool was original created by [@Tsoding](https://github.com/Tsoding).
+.br
+This is only my implementation of it, with added features, and adjusted to my liking.
+.SH OPTIONS
+.TP
+.B tatr help
+.br
+Shows the help message similar to this one.
+.TP
+.BI tatr\ init
+.br
+Initialises the
+.I cwd
+with a
+.RI \|"tasks/"\|
+directory, it does not yet exists.
+.TP
+.BI tatr\ find \ <task-id>
+.br
+Displays the information of a task, provided by its id.
+.TP
+.B tatr summary
+.br
+Displays general information about the tasks. Statistics relative to the tags and amount of tasks.
+.TP
+.BI tatr\ edit \ <task-id>
+.br
+Opens in your
+.I $EDITOR
+of choice the task provided by its id. Defaults to vim.
+.TP
+.BI tatr\ close \ <task-id> \ \&.\|.\|.\&
+.br
+Closes the task or tasks provided by their id.
+.TP
+.BI tatr\ rm \ <task-id> \ \&.\|.\|.\&
+.br
+Deletes the task or tasks provided by their id. Using
+.BI tatr \ del
+also works the same.
+.TP
+.B tatr\ ls\ [\|ls\ options\|]
+.br
+Displays every task answering to the query given by
+.IR ls\ options \&.\&
+.br
+A query is formed of
+.I \&.<tag>\&
+and keywords. Keywords include
+.BR and ,
+.BR or ,
+and
+.BR not .
+.br
+Amongst tags, some are pre-defined by the tool, including:
+.BR .all ,
+.BR .OPEN ,
+.BR .CLOSED ,
+.BR .TAGGED ,
+and
+.BR .UNTAGGED .
+.br
+To note, an empty query defaults to
+.BR .OPEN .
+Adding to it result in
+.BI .OPEN\ and \ <query> ,
+unless otherwise specified
+.BR .all ,
+or
+.BR .CLOSED \ tags.
+.TP
+.BI tatr\ new\ \-t \ <tag>,\&.\|.\|.\& \ \-p \ <int>\ "title"
+Creates a new task of title
+.IR "title" .
+.br
+.I new options
+allow you to add comma seperated tags, and to define the task's priority as it's being created.
+.SH Examples
+.TP
+tatr new -t feature,debug "this is a feature to be added for debug purposed" -p 42
+.br
+Creates a task named "this is a feature to be added for debug purposed" of priority 42 with the tags feature and debug.
+.TP
+tatr ls .CLOSED and .feature
+.br
+Lists closed tasks having the feature tag
+.TP
+tatr ls .all and .debug
+.br
+Lists all opened and closed tasks having the debug tag
+.TP
+tatr ls .all and .debug or .feature
+.br
+Lists all opened and closed tasks having the debug or feature tags
+.SH NOTES
+To be noted that as of 2026-07-03, the filtering system still lacks enclosing with parenthesis and name filtering.
+.SH AUTHORS
+Designed, implemented and improved by
+.B UnknownRedFoxo
+.br
+Idea/Concept by
+.BR Tsoding \ (Rexim)
+.SH COPYRIGHT
+.B M.I.T. License

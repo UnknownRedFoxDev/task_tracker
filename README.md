@@ -2,7 +2,7 @@
 
 ## Disclaimer
 
-Original idea by [@Tsoding](https://github.com/tsoding) (aka [@Remix](https://github.com/rexim))  
+Original idea by [@Tsoding](https://github.com/tsoding) (aka [@Rexim](https://github.com/rexim))  
 This is only a recreation for myself, it is open-source but not open-contributions, fork it and do whatever you want.  
 And once I'll reach a position where I'm comfortable with this tool, I'll start to add my own idea. This is not meant to be a 1:1 copy to Tsoding's (even more since I don't even know how he implemented his own).  
 
