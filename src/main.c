@@ -55,6 +55,7 @@ int main(int argc, char **argv)
 
 defer:
     free_tasks(&tasks);
+    free(opts.filters.items);
     free(tasks_dir);
     return result;
 }

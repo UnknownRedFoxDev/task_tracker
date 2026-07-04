@@ -1,8 +1,8 @@
 # Allow enclosing tags with parenthesis
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 80
-- TAGS: internal-rework,feature,filtering
+- TAGS: internal-rework,feature,filters,bug
 
 # Current issue
 Queries like:
@@ -35,12 +35,12 @@ when we would have wanted `.OPEN and (.feature or .debug)`
 
 
 ## What needs to be done
-So we need to put implicit parenthesis around the expression we want to evaluate "first". Not really first, but that we group together as `and` has more precedence over `or`.
+So we need to put implicit parenthesis around the expression we want to evaluate "first". Not really first, but that we group togather as `and` has more precedence over `or`.
 
 # What could be done
-So far we two functions: eval_tokens and eval_token, so what we need is a thrid function "eval_expression"
+So far we two functions: eval_tokens and eval_token, so what we need is a third function "eval_expression"
 
-We define an expression asa combinaison of two tokens. A query is a series of expressions and expressions are made out of tokens.
+We define an expression as combinaison of two tokens. A query is a series of expressions and expressions are made out of tokens.
 
 By default, the query is as simple as a single token `.OPEN`.
 When we add something: `.feature`, the query because an expression of `.OPEN and .feature`
@@ -159,3 +159,26 @@ but it should give: or .bug and .feature .CLOSED
 
 It searches the tree in prefix
 To note that `and` has more precendence over `or`
+
+## Consideration
+
+a & b | c ~= (a & b) | c
+a & (b | c)
+
+prev: a
+curr: &
+next: (b | c) from sb-to-sv
+|
+| Recursive call?
+   i.e. eval_tokens (tokens, sv)
+v
+prev: b
+curr: |
+next: c
+
+the expression inside parenthesis need to equate 0 in parenthesis sum ['(': +1, ')': -1] where the expression needs to have as much opening parenthesis as closing ones. Once it has achieved it, it does the recursive call with the expression built into a string builder turned into a string view.
+
+# Issue with all of that
+Right now, with the current system, it works but only sorta. It evaluate as it goes and doesn't build a tree (AST tree). Meaning that putting `.CLOSED and .feature or .bug` gives an array of closed tasks with feature as a tag, but also both opened and closed tasks with bug tag. But we want a result of closed task with either feature or bug in their tags.
+
+The above consideration is a work around to be lazy and not build an ast tree and go with eval as you go approach.

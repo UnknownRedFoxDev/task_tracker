@@ -156,9 +156,8 @@ int main(int argc, char **argv)
 
     da_append(&modules, "task");
     da_append(&modules, "helper");
-    da_append(&modules, "levenshtein");
 
-    if (rebuild) initialise_directories();
+    if (rebuild || !file_exists(BIN_DIR)) initialise_directories();
     if (!nobuild && !compile_submodules(&modules, &needs_recompile)) return_defer(1);
     if (!nobuild && !compile_main(&cmd, needs_recompile)) return_defer(1);
 

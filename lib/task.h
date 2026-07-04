@@ -14,7 +14,7 @@ typedef struct {
     char *path;
     char *uuid;
     char *name;
-    uint8_t priority;
+    size_t priority;
     task_status status;
     Ht(const char *, bool) tags;
 } task_t;
