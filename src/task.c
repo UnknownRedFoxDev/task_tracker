@@ -37,7 +37,7 @@ bool remove_task(task_t *task)
 bool remove_tasks(tasks_t *tasks, Flag_List_Mut *tasks_uuid)
 {
     da_foreach (task_t, task, tasks) {
-        for (size_t i = 0; i < tasks_uuid->count; ++i) {
+        for (u64 i = 0; i < tasks_uuid->count; ++i) {
             if (strcmp(task->uuid, tasks_uuid->items[i]) == 0) {
                 if (!remove_task(task)) return false;
                 da_remove_unordered(tasks_uuid, i);
@@ -57,12 +57,12 @@ bool close_task(task_t *task)
 
     if (!read_entire_file(task_md_path, &sb)) return_defer(false);
 
-    size_t ite = 0;
+    u64 ite = 0;
     while (sb.items[ite++] != '\n'); // # <title>\n
     ite += 1; // \n
     while (sb.items[ite++] != '\n'); // # - STATUS: OPEN\n
 
-    for (size_t i = ite; i < sb.count; ++i) {
+    for (u64 i = ite; i < sb.count; ++i) {
         sb_append(&temp_sb, sb.items[i]);
     }
 
@@ -85,7 +85,7 @@ defer:
 bool close_tasks(tasks_t *tasks, Flag_List_Mut *tasks_uuid)
 {
     da_foreach (task_t, task, tasks) {
-        for (size_t i = 0; i < tasks_uuid->count; ++i) {
+        for (u64 i = 0; i < tasks_uuid->count; ++i) {
             if (strcmp(task->uuid, tasks_uuid->items[i]) == 0) {
                 if (!close_task(task)) return false;
                 da_remove_unordered(tasks_uuid, i);
@@ -169,7 +169,7 @@ void task_summary()
     }
 
     struct keyval *ordered_list = calloc(__g_stats.count, sizeof(struct keyval));
-    size_t ite = 0;
+    u64 ite = 0;
     ht_foreach(value, &__g_stats) {
         const char *key = ht_key(&__g_stats, value);
         if (strcmp(key, "OPEN") && strcmp(key, "CLOSED") && strcmp(key, "UNTAGGED") && strcmp(key, "TOTAL")) {
@@ -180,13 +180,13 @@ void task_summary()
 
     qsort(ordered_list, __g_stats.count, sizeof(struct keyval), cmp_keyval_void);
 
-    for (size_t i = 0; i < ite; ++i) {
+    for (u64 i = 0; i < ite; ++i) {
         printf("    %*s => %d\n", longest_tag_name, ordered_list[i].key, ordered_list[i].value);
     }
 }
 
 struct task_distance {
-    size_t dist;
+    u64 dist;
     task_t *task;
 };
 
@@ -250,12 +250,12 @@ const char *boolean_keyword_to_string(boolean_keywords key)
 }
 
 String_View see_next_token(String_View *sv) {
-    size_t i = 0;
+    u64 i = 0;
     while (i < sv->count && sv->data[i] != ' ') {
         i += 1;
     }
     String_View result = nob_sv_from_parts(sv->data, i);
-    if (sv_starts_with(result, sv_from_cstr("."))) sv_chop_left(&result, 1);
+    // if (sv_starts_with(result, sv_from_cstr("."))) sv_chop_left(&result, 1);
     return result;
 }
 
@@ -266,7 +266,7 @@ String_View get_next_token(String_View *sv)
     return result;
 }
 
-void advance_to_next_token(String_View *sv, size_t i)
+void advance_to_next_token(String_View *sv, u64 i)
 {
     if (sv->count > 0) {
         if (i < sv->count) {
@@ -279,10 +279,10 @@ void advance_to_next_token(String_View *sv, size_t i)
     }
 }
 
-size_t eval_tag(const tasks_t *tasks, task_t **result, String_View tag, bool negate_mode)
+u64 eval_tag(const tasks_t *tasks, task_t **result, String_View tag, bool negate_mode)
 {
     memset(result, 0, tasks->count * sizeof(task_t *));
-    size_t result_ite = 0;
+    u64 result_ite = 0;
 
     nob_log(NOB_DEBUG, "-------------------------");
     nob_log(NOB_DEBUG, "tag: %s" SV_Fmt, (negate_mode)? "NOT " : "", SV_Arg(tag));
@@ -302,11 +302,11 @@ size_t eval_tag(const tasks_t *tasks, task_t **result, String_View tag, bool neg
 
 typedef Ht(char *, task_t *) tag_set;
 
-void eval_and_put(const tasks_t *tasks, task_t **result, size_t result_ite, tag_set *ht_tasks_set,
+void eval_and_put(const tasks_t *tasks, task_t **result, u64 result_ite, tag_set *ht_tasks_set,
                     boolean_keywords curr_mode, boolean_keywords prev_mode, String_View prev_token)
 {
     nob_log(NOB_DEBUG, "Tasks fitting their tag(s) %s %s"SV_Fmt, boolean_keyword_to_string(curr_mode), (prev_mode == NOT)? "not " : "", SV_Arg(prev_token));
-    for (size_t i = 0; i < result_ite; ++i) {
+    for (u64 i = 0; i < result_ite; ++i) {
         task_t *task = result[i];
         bool *found = ht_find(&task->tags, temp_sv_to_cstr(prev_token));
 
@@ -360,17 +360,28 @@ char *parse_parenthesis(String_View *tokens)
     return result;
 }
 
+char *str_to_lower(const char *cstr)
+{
+    char *result = strdup(cstr);
+    u64 i = 0;
+    while (result[i]) {
+        result[i] = tolower(result[i]);
+        i++;
+    }
+    return result;
+}
+
 /*
  * 20260621-110728:
  * When doing `not <tag>` or `<tag1> and <tag2>` or `<tag1> or <tag2>`, I'm not comparing tags, I'm comparing lists created from the tags and filtering the remainder
  * so when `<tag1> and (<tag2> or <tag3>)` I should be comparing list of tag1, with the last made of at least tag2 or tag3
  */
-size_t eval_tokens(const tasks_t *tasks, String_View *tokens, task_t **result)
+u64 eval_tokens(const tasks_t *tasks, String_View *tokens, task_t **result)
 {
     tag_set ht_tasks_set = { .hasheq = ht_cstr_hasheq };
 
-    size_t prev_inner_ite = 0;
-    size_t result_ite = 0;
+    u64 prev_inner_ite = 0;
+    u64 result_ite = 0;
 
     String_View prev_token = {0};
     String_View curr_token = {0};
@@ -382,7 +393,8 @@ size_t eval_tokens(const tasks_t *tasks, String_View *tokens, task_t **result)
     nob_log(NOB_DEBUG, "Tokens: " SV_Fmt, SV_Arg(*tokens));
 
     while (tokens->count) {
-        if (sv_starts_with(see_next_token(tokens), sv_from_cstr("("))) {
+        curr_token = see_next_token(tokens);
+        if (sv_starts_with(curr_token, sv_from_cstr("("))) {
             char *temp_result =  parse_parenthesis(tokens);
             String_View sub_expr_tokens = sv_from_cstr(temp_result);
             result_ite = eval_tokens(tasks, &sub_expr_tokens, result);
@@ -395,6 +407,21 @@ size_t eval_tokens(const tasks_t *tasks, String_View *tokens, task_t **result)
             }
             eval_and_put(tasks, result, result_ite, &ht_tasks_set, curr_mode, prev_mode, next_token);
             free(temp_result);
+            goto end;
+        } else if (!sv_starts_with(curr_token, sv_from_cstr("."))) {
+            String_Builder sb = {0};
+            sb_appendf(&sb, SV_Fmt, SV_Arg(*tokens));
+            char *name = strdup(sb.items);
+            da_foreach (task_t, task, tasks) {
+                char *task_name = str_to_lower(task->name);
+                if (strstr(task_name, name)) {
+                    result[result_ite++] = task;
+                }
+                free(task_name);
+            }
+            free(name);
+            free(sb.items);
+            tokens->count = 0;
             goto end;
         } else {
             curr_token = get_next_token(tokens);
@@ -435,7 +462,7 @@ size_t eval_tokens(const tasks_t *tasks, String_View *tokens, task_t **result)
             if (sv_starts_with(next_token, sv_from_cstr("("))) {
                 char *temp_result =  parse_parenthesis(tokens);
                 String_View sub_expr_tokens = sv_from_cstr(temp_result);
-                size_t result_ite = eval_tokens(tasks, &sub_expr_tokens, result);
+                u64 result_ite = eval_tokens(tasks, &sub_expr_tokens, result);
                 eval_and_put(tasks, result, result_ite, &ht_tasks_set, curr_mode, prev_mode, prev_token);
                 free(temp_result);
             } else {
@@ -490,7 +517,7 @@ end:
 
     nob_log(NOB_DEBUG, "Result: ");
     if (minimal_log_level == NOB_DEBUG) {
-        for (size_t i = 0; i < prev_inner_ite; ++i) {
+        for (u64 i = 0; i < prev_inner_ite; ++i) {
             print_task(stdout, result[i]);
         }
     }
@@ -512,11 +539,11 @@ bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens, bool reversed)
 
     {
         String_Builder temp_sb = {0};
-        for (size_t i = 0; i < tokens->count; ++i) {
+        for (u64 i = 0; i < tokens->count; ++i) {
             sb_appendf(&temp_sb, "%s ", tokens->items[i]);
         }
 
-        if (temp_sb.count > 0 && (strstr(temp_sb.items, ".CLOSED") || strstr(temp_sb.items, "not .OPEN"))) {
+        if (temp_sb.count > 0 && (strstr(temp_sb.items, ".CLOSED") || strstr(temp_sb.items, "not .OPEN") || !strstr(temp_sb.items, "."))) {
             ignore_default = true;
         }
 
@@ -529,7 +556,7 @@ bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens, bool reversed)
         if (tokens->count > 1) sb_appendf(&sb, "(");
     }
 
-    for (size_t i = 0; i < tokens->count; ++i) {
+    for (u64 i = 0; i < tokens->count; ++i) {
         sb_appendf(&sb, "%s%s", tokens->items[i], (i == tokens->count -1)? "" : " ");
     }
 
@@ -541,19 +568,19 @@ bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens, bool reversed)
 
     // Size of tasks->count; The list may contain holes, or be incomplete due to the filtering
     task_t **list = calloc(tasks->count, sizeof(task_t *));
-    size_t n = eval_tokens(tasks, &sv, list);
+    u64 n = eval_tokens(tasks, &sv, list);
     task_t *ordered = NULL;
     if (!list) return_defer(false);
 
     if (n > 0) {
         ordered = calloc(n, sizeof(task_t));
-        for (size_t i = 0; i < n; ++i)
+        for (u64 i = 0; i < n; ++i)
             ordered[i] = *list[i];
 
         if (reversed) qsort(ordered, n, sizeof(task_t), cmp_tasks_rev_void);
         else qsort(ordered, n, sizeof(task_t), cmp_tasks_void);
 
-        for (size_t i = 0; i < n; ++i) {
+        for (u64 i = 0; i < n; ++i) {
             print_task(stdout, &ordered[i]);
         }
     } else {
@@ -571,7 +598,7 @@ defer:
 }
 
 
-task_t *create_task(const char *path, const char *task_name, cmdline_opts *opts)
+task_t *create_task(const char *path, const char *task_name, cmdline_opts_t *opts)
 {
     String_Builder sb = {0};
     task_t *result = calloc(1, sizeof(task_t));

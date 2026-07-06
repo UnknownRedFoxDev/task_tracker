@@ -5,7 +5,7 @@
 
 int main(int argc, char **argv)
 {
-    cmdline_opts opts = {0};
+    cmdline_opts_t opts = {0};
     tasks_t tasks = {0};
     int result = 0;
     parse_options(argc, argv, &opts);

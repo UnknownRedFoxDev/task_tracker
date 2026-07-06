@@ -40,7 +40,7 @@ void usage(FILE *stream)
     fprintf(stream, "      Closes the task(s) specified.\n");
 }
 
-void parse_options(int argc, char **argv, cmdline_opts *opts)
+void parse_options(int argc, char **argv, cmdline_opts_t *opts)
 {
     // Just calling the program
     if (argc < 2) {
@@ -130,7 +130,7 @@ char *get_timestamp_uuid()
     time_t now = time(NULL);
     struct tm *tm_info = localtime(&now);
     char *buffer = NULL;
-    size_t size = sizeof("YYYYMMSS-HHMMSS");
+    u64 size = sizeof("YYYYMMSS-HHMMSS");
     buffer = calloc(size, sizeof(char));
 
     // Format time; output is UTF-8 encoded due to locale

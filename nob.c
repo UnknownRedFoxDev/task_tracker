@@ -25,10 +25,13 @@ void add_standard_flags(Nob_Cmd *cmd)
     cmd_append(cmd, "-Wno-unused-parameter");
     cmd_append(cmd, "-Wno-unused-function");
     if (debug) {
-        cmd_append(cmd, "-DDEBUG");
+        // cmd_append(cmd, "-DDEBUG");
         cmd_append(cmd, "-g");
         cmd_append(cmd, "-ggdb");
+        cmd_append(cmd, "-O0");
         // cmd_append(cmd, "-fsanitize=address");
+    } else {
+        cmd_append(cmd, "-O3");
     }
 }
 

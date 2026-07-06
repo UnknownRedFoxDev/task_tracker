@@ -1,6 +1,17 @@
 #ifndef COMMONS_H_
 #define COMMONS_H_
 
+#include <stdio.h>
+#include <time.h>
+#include <locale.h>
+#include <sys/types.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "../thirdparty/nob.h"
+#include "../thirdparty/flag.h"
+#include "../thirdparty/ht.h"
+
 #define VERSION_MAJOR 0
 #define VERSION_MINOR 0
 #define VERSION_PATCH 1
@@ -24,32 +35,31 @@
 
 #define TASKS_DIR "./tasks/"
 
-#include <stdio.h>
-#include <time.h>
-#include <locale.h>
-#include <sys/types.h>
-#include <stdlib.h>
-#include <string.h>
+typedef int8_t s8;
+typedef int16_t s16;
+typedef int32_t s32;
+typedef int64_t s64;
+typedef uint8_t u8;
+typedef uint16_t u16;
+typedef uint32_t u32;
+typedef uint64_t u64;
 
-#include "../thirdparty/nob.h"
-#include "../thirdparty/flag.h"
-#include "../thirdparty/ht.h"
-
-typedef struct {
-    bool help;
-    bool list_tasks;
-    bool list_tasks_reversed;
-    bool remove_tasks;
-    bool init_dir;
-    bool close_tasks;
-    bool summary;
+typedef struct cmdline_opts_s {
+    bool  help;
+    bool  list_tasks;
+    bool  list_tasks_reversed;
+    bool  remove_tasks;
+    bool  init_dir;
+    bool  close_tasks;
+    bool  summary;
     char *edit_task;
     char *find_task;
     char *create_task;
     char *create_task_tags;
-    int create_task_priority;
+    u16   create_task_priority;
     Flag_List_Mut filters;
-} cmdline_opts;
+} cmdline_opts_t;
+
 
 #endif // COMMONS_H_
 

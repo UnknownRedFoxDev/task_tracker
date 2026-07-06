@@ -1,6 +1,6 @@
 # Allow ls filtering to use the task's name too
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 60
 - TAGS: filters,internal-rework
 
