@@ -7,8 +7,7 @@ int main(int argc, char **argv)
 {
     cmdline_opts_t opts = {0};
     tasks_t tasks = {0};
-    int result = 0;
-    parse_options(argc, argv, &opts);
+    int result = 0; parse_options(argc, argv, &opts);
 
     const char *cwd = get_current_dir_temp();
     char *tasks_dir = find_tasks_dir(cwd);
@@ -37,6 +36,10 @@ int main(int argc, char **argv)
         free_task(task);
     } else if (opts.summary) {
         task_summary();
+    } else if (opts.cat_task) {
+        task_t *task = find_task(&tasks, opts.cat_task);
+        if (!task) return_defer(1);
+        cat_task(task);
     } else if (opts.edit_task) {
         task_t *task = find_task(&tasks, opts.edit_task);
         if (!task) return_defer(1);

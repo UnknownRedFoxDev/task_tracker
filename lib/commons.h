@@ -52,6 +52,7 @@ typedef struct cmdline_opts_s {
     bool  init_dir;
     bool  close_tasks;
     bool  summary;
+    char *cat_task;
     char *edit_task;
     char *find_task;
     char *create_task;

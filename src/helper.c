@@ -24,6 +24,9 @@ void usage(FILE *stream)
     fprintf(stream, "          -t <tags> : Add tags to the new task. Tags are comma seperated without space.\n");
     fprintf(stream, "          -p <priority> : Change priority from default 100 priority.\n");
     fprintf(stream, "\n");
+    fprintf(stream, "    cat <task-id>\n");
+    fprintf(stream, "      Prints the details of the task to the output\n");
+    fprintf(stream, "\n");
     fprintf(stream, "    edit <task-id>\n");
     fprintf(stream, "      Opens the task specified in your $EDITOR of choice. Default to vim if $EDITOR is not set.\n");
     fprintf(stream, "\n");
@@ -91,6 +94,9 @@ void parse_options(int argc, char **argv, cmdline_opts_t *opts)
                 exit(1);
             }
             opts->edit_task = shift(argv, argc);
+            break;
+        } else if (strcmp(flag, "cat") == 0) {
+            opts->cat_task = shift(argv, argc);
             break;
         } else if (strcmp(flag, "find") == 0) {
             opts->find_task = shift(argv, argc);

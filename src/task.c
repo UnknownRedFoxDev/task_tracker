@@ -20,6 +20,15 @@ task_t *find_task(tasks_t *tasks, const char *uuid)
     return result;
 }
 
+void cat_task(task_t *task)
+{
+    String_Builder sb = {0};
+    if (!read_entire_file(temp_sprintf("%s/%s/TASK.md", task->path, task->uuid), &sb)) return ;
+
+    printf("%s", sb.items);
+    free(sb.items);
+}
+
 bool remove_task(task_t *task)
 {
     minimal_log_level = ERROR;
@@ -279,10 +288,10 @@ void advance_to_next_token(String_View *sv, u64 i)
     }
 }
 
-u64 eval_tag(const tasks_t *tasks, task_t **result, String_View tag, bool negate_mode)
+u32 eval_tag(const tasks_t *tasks, task_t **result, String_View tag, bool negate_mode)
 {
     memset(result, 0, tasks->count * sizeof(task_t *));
-    u64 result_ite = 0;
+    u32 result_ite = 0;
 
     nob_log(NOB_DEBUG, "-------------------------");
     nob_log(NOB_DEBUG, "tag: %s" SV_Fmt, (negate_mode)? "NOT " : "", SV_Arg(tag));
@@ -302,11 +311,12 @@ u64 eval_tag(const tasks_t *tasks, task_t **result, String_View tag, bool negate
 
 typedef Ht(char *, task_t *) tag_set;
 
-void eval_and_put(const tasks_t *tasks, task_t **result, u64 result_ite, tag_set *ht_tasks_set,
-                    boolean_keywords curr_mode, boolean_keywords prev_mode, String_View prev_token)
+void eval_and_put(const tasks_t *tasks, task_t **result, u32 result_ite, tag_set *ht_tasks_set,
+                  boolean_keywords curr_mode, boolean_keywords prev_mode, String_View prev_token)
 {
-    nob_log(NOB_DEBUG, "Tasks fitting their tag(s) %s %s"SV_Fmt, boolean_keyword_to_string(curr_mode), (prev_mode == NOT)? "not " : "", SV_Arg(prev_token));
-    for (u64 i = 0; i < result_ite; ++i) {
+    nob_log(NOB_DEBUG, "Tasks fitting their tag(s) %s %s"SV_Fmt,
+            boolean_keyword_to_string(curr_mode), (prev_mode == NOT)? "not " : "", SV_Arg(prev_token));
+    for (u32 i = 0; i < result_ite; ++i) {
         task_t *task = result[i];
         bool *found = ht_find(&task->tags, temp_sv_to_cstr(prev_token));
 
@@ -363,7 +373,7 @@ char *parse_parenthesis(String_View *tokens)
 char *str_to_lower(const char *cstr)
 {
     char *result = strdup(cstr);
-    u64 i = 0;
+    u32 i = 0;
     while (result[i]) {
         result[i] = tolower(result[i]);
         i++;
@@ -376,12 +386,12 @@ char *str_to_lower(const char *cstr)
  * When doing `not <tag>` or `<tag1> and <tag2>` or `<tag1> or <tag2>`, I'm not comparing tags, I'm comparing lists created from the tags and filtering the remainder
  * so when `<tag1> and (<tag2> or <tag3>)` I should be comparing list of tag1, with the last made of at least tag2 or tag3
  */
-u64 eval_tokens(const tasks_t *tasks, String_View *tokens, task_t **result)
+u32 eval_tokens(const tasks_t *tasks, String_View *tokens, task_t **result)
 {
     tag_set ht_tasks_set = { .hasheq = ht_cstr_hasheq };
 
-    u64 prev_inner_ite = 0;
-    u64 result_ite = 0;
+    u32 prev_inner_ite = 0;
+    u32 result_ite = 0;
 
     String_View prev_token = {0};
     String_View curr_token = {0};
@@ -394,20 +404,28 @@ u64 eval_tokens(const tasks_t *tasks, String_View *tokens, task_t **result)
 
     while (tokens->count) {
         curr_token = see_next_token(tokens);
+
+        // -=-=-=-=-=-=-=-=-=-=-= PARSING VERY FIRST INNER-EXPRESSION =-=-=-=-=-=-=-=-=-=-=-
         if (sv_starts_with(curr_token, sv_from_cstr("("))) {
-            char *temp_result =  parse_parenthesis(tokens);
-            String_View sub_expr_tokens = sv_from_cstr(temp_result);
+            char *extracted_tokens =  parse_parenthesis(tokens);
+            String_View sub_expr_tokens = sv_from_cstr(extracted_tokens);
             result_ite = eval_tokens(tasks, &sub_expr_tokens, result);
+
+            // If token string has extra fluff at the end
+            // e.g. (.feature or .bug) and .CLOSED
+            //                         ^ looks at those
             if (tokens->count > 0) {
-                curr_token = get_next_token(tokens);
+                curr_token = get_next_token(tokens); // Most likely an 'or' or an 'and'
                 next_token = see_next_token(tokens);
 
                 if (sv_eq(curr_token, sv_from_cstr("and"))) curr_mode = AND;
                 else if (sv_eq(curr_token, sv_from_cstr("or"))) curr_mode = OR;
             }
             eval_and_put(tasks, result, result_ite, &ht_tasks_set, curr_mode, prev_mode, next_token);
-            free(temp_result);
+            free(extracted_tokens);
             goto end;
+
+        // -=-=-=-=-=-=-=-=-=-=-= PARSING BY NAME =-=-=-=-=-=-=-=-=-=-=-
         } else if (!sv_starts_with(curr_token, sv_from_cstr("."))) {
             String_Builder sb = {0};
             sb_appendf(&sb, SV_Fmt, SV_Arg(*tokens));
@@ -462,7 +480,7 @@ u64 eval_tokens(const tasks_t *tasks, String_View *tokens, task_t **result)
             if (sv_starts_with(next_token, sv_from_cstr("("))) {
                 char *temp_result =  parse_parenthesis(tokens);
                 String_View sub_expr_tokens = sv_from_cstr(temp_result);
-                u64 result_ite = eval_tokens(tasks, &sub_expr_tokens, result);
+                u32 result_ite = eval_tokens(tasks, &sub_expr_tokens, result);
                 eval_and_put(tasks, result, result_ite, &ht_tasks_set, curr_mode, prev_mode, prev_token);
                 free(temp_result);
             } else {
@@ -517,7 +535,7 @@ end:
 
     nob_log(NOB_DEBUG, "Result: ");
     if (minimal_log_level == NOB_DEBUG) {
-        for (u64 i = 0; i < prev_inner_ite; ++i) {
+        for (u32 i = 0; i < prev_inner_ite; ++i) {
             print_task(stdout, result[i]);
         }
     }
@@ -568,19 +586,19 @@ bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens, bool reversed)
 
     // Size of tasks->count; The list may contain holes, or be incomplete due to the filtering
     task_t **list = calloc(tasks->count, sizeof(task_t *));
-    u64 n = eval_tokens(tasks, &sv, list);
+    u32 n = eval_tokens(tasks, &sv, list);
     task_t *ordered = NULL;
     if (!list) return_defer(false);
 
     if (n > 0) {
         ordered = calloc(n, sizeof(task_t));
-        for (u64 i = 0; i < n; ++i)
+        for (u32 i = 0; i < n; ++i)
             ordered[i] = *list[i];
 
         if (reversed) qsort(ordered, n, sizeof(task_t), cmp_tasks_rev_void);
         else qsort(ordered, n, sizeof(task_t), cmp_tasks_void);
 
-        for (u64 i = 0; i < n; ++i) {
+        for (u32 i = 0; i < n; ++i) {
             print_task(stdout, &ordered[i]);
         }
     } else {

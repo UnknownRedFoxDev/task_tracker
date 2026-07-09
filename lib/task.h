@@ -28,6 +28,7 @@ typedef struct {
 void task_summary();
 void free_task(task_t *task);
 bool open_task(task_t *task);
+void cat_task(task_t *task);
 void free_tasks(tasks_t *tasks);
 bool close_task(task_t *task);
 void print_task(FILE *stream, task_t *task);
