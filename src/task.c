@@ -426,22 +426,12 @@ u32 eval_tokens(const tasks_t *tasks, String_View *tokens, task_t **result)
             goto end;
 
         // -=-=-=-=-=-=-=-=-=-=-= PARSING BY NAME =-=-=-=-=-=-=-=-=-=-=-
-        } else if (!sv_starts_with(curr_token, sv_from_cstr("."))) {
-            String_Builder sb = {0};
-            sb_appendf(&sb, SV_Fmt, SV_Arg(*tokens));
-            char *name = strdup(sb.items);
-            da_foreach (task_t, task, tasks) {
-                char *task_name = str_to_lower(task->name);
-                if (strstr(task_name, name)) {
-                    result[result_ite++] = task;
-                }
-                free(task_name);
-            }
-            free(name);
-            free(sb.items);
-            tokens->count = 0;
+        } else if (!sv_starts_with(curr_token, sv_from_cstr(".")) &&
+                   (!sv_eq(curr_token, sv_from_cstr("and")) && !sv_eq(curr_token, sv_from_cstr("or")) && !sv_eq(curr_token, sv_from_cstr("not")))) {
+
             goto end;
         } else {
+            nob_log(NOB_DEBUG, "Getting next token:");
             curr_token = get_next_token(tokens);
 
             nob_log(NOB_DEBUG, "before modif: %s", boolean_keyword_to_string(curr_mode));
@@ -463,6 +453,7 @@ u32 eval_tokens(const tasks_t *tasks, String_View *tokens, task_t **result)
             nob_log(NOB_DEBUG, "after modif: %s", boolean_keyword_to_string(curr_mode));
             nob_log(NOB_DEBUG, "prev: "SV_Fmt ", curr: "SV_Fmt ", next: "SV_Fmt, SV_Arg(prev_token), SV_Arg(curr_token), SV_Arg(next_token));
             nob_log(NOB_DEBUG, "-------------------------");
+            nob_log(NOB_DEBUG, "Tokens left: %zu", tokens->count);
         }
 
 
@@ -487,10 +478,6 @@ u32 eval_tokens(const tasks_t *tasks, String_View *tokens, task_t **result)
                 if (sv_eq(next_token, sv_from_cstr("TAGGED"))) {
                     next_mode = NOT;
                     next_token = sv_from_cstr("UNTAGGED");
-                } else if (sv_eq(next_token, sv_from_cstr("all"))) {
-                    curr_mode = OR;
-                    curr_token = sv_from_cstr("or");
-                    next_token = sv_from_cstr("CLOSED");
                 }
 
                 if (sv_eq(next_token, sv_from_cstr("not"))) {
@@ -545,6 +532,28 @@ end:
     return prev_inner_ite;
 }
 
+u32 filter_by_name(const tasks_t *tasks, String_View name, task_t **result)
+{
+    nob_log(NOB_DEBUG, "Starting filtering by name");
+
+    String_Builder sb = {0};
+    sb_appendf(&sb, SV_Fmt, SV_Arg(name));
+    char *name_cstr = strdup(sb.items);
+    u32 result_ite = 0;
+
+    da_foreach (task_t, task, tasks) {
+        char *task_name = str_to_lower(task->name);
+        if (strstr(task_name, name_cstr)) {
+            result[result_ite++] = task;
+        }
+        free(task_name);
+    }
+
+    free(name_cstr);
+    free(sb.items);
+    return result_ite;
+}
+
 // pre-defined tags: .OPEN, .CLOSED, .UNTAGGED, .TAGGED (not .UNTAGGED)
 // by default: .OPEN
 bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens, bool reversed)
@@ -553,42 +562,68 @@ bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens, bool reversed)
     String_View sv = {0};
     String_Builder sb = {0};
     bool ignore_default = false;
+    bool all = false;
+    bool name_filtering = false;
     bool result = true;
-
-    {
-        String_Builder temp_sb = {0};
-        for (u64 i = 0; i < tokens->count; ++i) {
-            sb_appendf(&temp_sb, "%s ", tokens->items[i]);
-        }
-
-        if (temp_sb.count > 0 && (strstr(temp_sb.items, ".CLOSED") || strstr(temp_sb.items, "not .OPEN") || !strstr(temp_sb.items, "."))) {
-            ignore_default = true;
-        }
-
-        free(temp_sb.items);
-    }
-
-    if (!ignore_default) {
-        sb_appendf(&sb, ".OPEN");
-        if (tokens->count > 0) sb_appendf(&sb, " and ");
-        if (tokens->count > 1) sb_appendf(&sb, "(");
-    }
-
-    for (u64 i = 0; i < tokens->count; ++i) {
-        sb_appendf(&sb, "%s%s", tokens->items[i], (i == tokens->count -1)? "" : " ");
-    }
-
-    if (!ignore_default && tokens->count > 1)
-        sb_appendf(&sb, ")");
-
-    sv = sb_to_sv(sb);
-
-
-    // Size of tasks->count; The list may contain holes, or be incomplete due to the filtering
-    task_t **list = calloc(tasks->count, sizeof(task_t *));
-    u32 n = eval_tokens(tasks, &sv, list);
+    Flag_List_Mut save = *tokens;
+    task_t **list = NULL;
     task_t *ordered = NULL;
+    u32 n = 0;
+
+    list = calloc(tasks->count, sizeof(task_t *));
     if (!list) return_defer(false);
+
+    if (tokens->count == 1) {
+        for (char *c = tokens->items[0]; *c != '\0'; ++c) {
+            if (*c == ' ') {
+                name_filtering = true;
+                break;
+            }
+        }
+    }
+
+    if (!name_filtering) {
+        {
+            String_Builder temp_sb = {0};
+            for (u64 i = 0; i < tokens->count; ++i) {
+                sb_appendf(&temp_sb, "%s ", tokens->items[i]);
+            }
+
+            if (temp_sb.count > 0 && (strstr(temp_sb.items, ".all"))) {
+                all = true;
+                shift(tokens->items, tokens->count);
+            }
+
+            if (temp_sb.count > 0 && (strstr(temp_sb.items, ".CLOSED") || strstr(temp_sb.items, "not .OPEN") || !strstr(temp_sb.items, "."))) {
+                ignore_default = true;
+            }
+
+            free(temp_sb.items);
+        }
+
+        if (all) {
+            sb_appendf(&sb, "(.OPEN or .CLOSED) ");
+        } else if (!ignore_default) {
+            sb_appendf(&sb, ".OPEN");
+            if (tokens->count > 0) sb_appendf(&sb, " and ");
+            if (tokens->count > 1) sb_appendf(&sb, "(");
+        }
+
+        for (u64 i = 0; i < tokens->count; ++i) {
+            sb_appendf(&sb, "%s%s", tokens->items[i], (i == tokens->count -1)? "" : " ");
+        }
+
+        if (!ignore_default && tokens->count > 1 && !all)
+            sb_appendf(&sb, ")");
+
+        sv = sb_to_sv(sb);
+        *tokens = save;
+
+        // Size of tasks->count; The list may contain holes, or be incomplete due to the filtering
+        n = eval_tokens(tasks, &sv, list);
+    } else {
+        n = filter_by_name(tasks, sv_from_cstr(tokens->items[0]), list);
+    }
 
     if (n > 0) {
         ordered = calloc(n, sizeof(task_t));
@@ -602,7 +637,11 @@ bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens, bool reversed)
             print_task(stdout, &ordered[i]);
         }
     } else {
-        nob_log(INFO, "No tasks fitting your query (\"%s\") were found", sb.items);
+        if (name_filtering) {
+            nob_log(INFO, "No tasks were found having \"%s\" in their name", tokens->items[0]);
+        } else {
+            nob_log(INFO, "No tasks fitting your query (\"%s\") were found", sb.items);
+        }
     }
 
 defer:

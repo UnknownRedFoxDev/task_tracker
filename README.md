@@ -6,7 +6,7 @@ Original idea by [@Tsoding](https://github.com/tsoding) (aka [@Rexim](https://gi
 This is only a recreation for myself, it is open-source but not open-contributions, fork it and do whatever you want.  
 And once I'll reach a position where I'm comfortable with this tool, I'll start to add my own idea. This is not meant to be a 1:1 copy to Tsoding's (even more since I don't even know how he implemented his own).  
 
-Moreover, up until [this commit](d0eba0227b83d3d369d1194adbaf387e0d5ba477), the history is only a sort of replay of what I had previously done.  
+Moreover, up until [this commit](https://github.com/UnknownRedFoxDev/task_tracker/tree/73bd3c513562d36f5b7fd263c2eb14428c467913), the history is only a sort of replay of what I had previously done.  
 Since I forgot to initialize a repo before starting the project, only everything after said commit is progress done in real time.  
 
 This project did not, and will not use any form agentic coding/vibe coding. It was realized by hand and will continue to be done as such.  
