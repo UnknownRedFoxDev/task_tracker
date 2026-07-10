@@ -39,6 +39,7 @@ List of feature available:
 `./tatr new [OPTIONS] "<title>"`: Creates a new task and opens in your `$EDITOR`, defaults to vim.  
 `./tatr (rm|del) <task-id> [...]`: Deletes the task(s) specified  
 `./tatr close <task-id> [...]`: Closes the task(s)  
+`./tatr reopen <task-id> [...]`: Reopens the task(s)  
 `./tatr (summary|sum)`: See the different stats related to the task available
 
 

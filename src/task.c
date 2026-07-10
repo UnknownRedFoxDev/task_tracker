@@ -57,32 +57,40 @@ bool remove_tasks(tasks_t *tasks, Flag_List_Mut *tasks_uuid)
     return true;
 }
 
-bool close_task(task_t *task)
+bool read_file_until_status(const char *path, String_Builder *file_buffer_reader, String_Builder *buffer_for_whatever_is_after)
+{
+    if (!read_entire_file(path, file_buffer_reader)) return false;
+    u32 file_pointer = 0;
+
+    while (file_buffer_reader->items[file_pointer++] != '\n'); // # <title>\n
+    file_pointer += 1;                                         // \n
+    while (file_buffer_reader->items[file_pointer++] != '\n'); // # - STATUS: OPEN\n
+
+    for (u32 i = file_pointer; i < file_buffer_reader->count; ++i) {
+        sb_append(buffer_for_whatever_is_after, file_buffer_reader->items[i]);
+    }
+
+    file_buffer_reader->count -= file_buffer_reader->count - file_pointer;
+    while (file_buffer_reader->items[file_buffer_reader->count--] != ' ');
+    file_buffer_reader->count++; // STATUS -> STATUS:
+    return true;
+}
+
+bool change_task_status(task_t *task, task_status new_status)
 {
     const char *task_md_path = temp_sprintf("%s/%s/TASK.md", task->path, task->uuid);
     String_Builder sb = {0};
     String_Builder temp_sb = {0};
     bool result = true;
 
-    if (!read_entire_file(task_md_path, &sb)) return_defer(false);
+    if (!read_file_until_status(task_md_path, &sb, &temp_sb)) return_defer(false);
 
-    u64 ite = 0;
-    while (sb.items[ite++] != '\n'); // # <title>\n
-    ite += 1; // \n
-    while (sb.items[ite++] != '\n'); // # - STATUS: OPEN\n
-
-    for (u64 i = ite; i < sb.count; ++i) {
-        sb_append(&temp_sb, sb.items[i]);
-    }
-
-    sb.count -= sb.count - ite + 5;
-
-    sb_appendf(&sb, "CLOSED\n");
+    sb_appendf(&sb, " %s\n", task_status_to_cstr(new_status));
     sb_append_buf(&sb, temp_sb.items, temp_sb.count);
 
     if (!write_entire_file(task_md_path, sb.items, sb.count)) return_defer(false);
 
-    nob_log(INFO, "Closed task(%s): %s", task->uuid, task->name);
+    nob_log(INFO, "%s task(%s): %s", (new_status == CLOSED)? "Closed" : "Reopened", task->uuid, task->name);
 
 defer:
     free(sb.items);
@@ -91,12 +99,12 @@ defer:
     return result;
 }
 
-bool close_tasks(tasks_t *tasks, Flag_List_Mut *tasks_uuid)
+bool change_tasks_status(tasks_t *tasks, Flag_List_Mut *tasks_uuid, task_status new_status)
 {
     da_foreach (task_t, task, tasks) {
         for (u64 i = 0; i < tasks_uuid->count; ++i) {
             if (strcmp(task->uuid, tasks_uuid->items[i]) == 0) {
-                if (!close_task(task)) return false;
+                if (!change_task_status(task, new_status)) return false;
                 da_remove_unordered(tasks_uuid, i);
                 break;
             }

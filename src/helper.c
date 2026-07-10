@@ -39,6 +39,9 @@ void usage(FILE *stream)
     fprintf(stream, "\n");
     fprintf(stream, "    close <task-id> [...]\n");
     fprintf(stream, "      Closes the task(s) specified.\n");
+    fprintf(stream, "\n");
+    fprintf(stream, "    reopen <task-id> [...]\n");
+    fprintf(stream, "      Reopens the task(s) specified.\n");
 }
 
 void parse_options(int argc, char **argv, cmdline_opts_t *opts)
@@ -104,6 +107,9 @@ void parse_options(int argc, char **argv, cmdline_opts_t *opts)
             break;
         } else if (strcmp(flag, "close") == 0) {
             opts->close_tasks = true;
+            break;
+        } else if (strcmp(flag, "reopen") == 0) {
+            opts->reopen_tasks = true;
             break;
         } else if (strcmp(flag, "init") == 0) {
             opts->init_dir = true;
