@@ -1,21 +1,22 @@
-#include "../lib/task.h"
 #include <stdlib.h>
+#include "../lib/task.h"
 #include "../lib/helper.h"
 
 void usage(FILE *stream)
 {
-    fprintf(stream, "Usage: ./tasker <OPTIONS>\n");
+    fprintf(stream, "Usage: ./tatr <OPTIONS>\n");
     fprintf(stream, "OPTIONS:\n");
     fprintf(stream, "    help\n");
     fprintf(stream, "      Lists this help message\n");
     fprintf(stream, "\n");
     fprintf(stream, "    ls\n");
-    fprintf(stream, "      Lists all tasks. Filters as strings can be passed to filter tasks by name, status and tags\n");
+    fprintf(stream, "      Lists all tasks. Filters as strings can be passed to filter tasks by name, status and tags.\n");
+    fprintf(stream, "      Filtering by tag and by name are mutually exclusive.\n");
     fprintf(stream, "\n");
     fprintf(stream, "    ls-rev\n");
     fprintf(stream, "      Works similarly to `ls` but prints the tasks in the reverse order of priority\n");
     fprintf(stream, "\n");
-    fprintf(stream, "    summary\n");
+    fprintf(stream, "    summary | sum\n");
     fprintf(stream, "      Summary of the different stats of all tasks available\n");
     fprintf(stream, "\n");
     fprintf(stream, "    new [OPTIONS] <title>\n");
@@ -33,13 +34,10 @@ void usage(FILE *stream)
     fprintf(stream, "    find <task-id>\n");
     fprintf(stream, "      Finds the task specified and prints it to the output.\n");
     fprintf(stream, "\n");
-    fprintf(stream, "    rm <task-id> [<task-id> [<task-id> [...] ] ]\n");
+    fprintf(stream, "    rm | del <task-id> [...]\n");
     fprintf(stream, "      Deletes the task(s) specified.\n");
     fprintf(stream, "\n");
-    fprintf(stream, "    del <task-id> [<task-id> [<task-id> [...] ] ]\n");
-    fprintf(stream, "      Same as rm opts.\n");
-    fprintf(stream, "\n");
-    fprintf(stream, "    close <task-id> [<task-id> [<task-id> [...] ] ]\n");
+    fprintf(stream, "    close <task-id> [...]\n");
     fprintf(stream, "      Closes the task(s) specified.\n");
 }
 
