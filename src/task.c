@@ -1,4 +1,5 @@
 #include <ctype.h>
+#include <string.h>
 #define HT_IMPLEMENTATION
 #include "../lib/task.h"
 #include "../lib/helper.h"
@@ -130,11 +131,11 @@ bool open_task(task_t *task)
     return result;
 }
 
-void print_task(FILE *stream, task_t *task)
+void print_task(FILE *stream, task_t *task, int alignment)
 {
     String_Builder sb = {0};
     sb_appendf(&sb, "%s%s/TASK.md%s:%s1%s: ", COLOR_RED, task->uuid, COLOR_RESET, COLOR_YELLOW, COLOR_RESET);
-    sb_appendf(&sb, "[PRIORITY: %-2zu ", task->priority);
+    sb_appendf(&sb, "[PRIORITY: %-*zu ", alignment, task->priority);
     if (task->tags.count) {
         sb_appendf(&sb, ", TAGS: ");
         ht_foreach (val, &task->tags) {
@@ -307,7 +308,7 @@ u32 eval_tag(const tasks_t *tasks, task_t **result, String_View tag, bool negate
     da_foreach (task_t, task, tasks) {
         bool *found = ht_find(&task->tags, temp_sv_to_cstr(tag));
         if ((!found && negate_mode) || (found && !negate_mode)) {
-            if (minimal_log_level == NOB_DEBUG) print_task(stdout, task);
+            if (minimal_log_level == NOB_DEBUG) print_task(stdout, task, DEFAULT_ALIGNMENT);
             result[result_ite++] = task;
         }
     }
@@ -330,7 +331,7 @@ void eval_and_put(const tasks_t *tasks, task_t **result, u32 result_ite, tag_set
 
         // If task has the tag from `prev_token` and `AND` mode is enabled. Otherwise just put it in the HTable
         if (curr_mode == OR || (((!found && prev_mode == NOT) || (found && prev_mode != NOT)) && curr_mode == AND)) {
-            if (minimal_log_level == NOB_DEBUG) print_task(stdout, task);
+            if (minimal_log_level == NOB_DEBUG) print_task(stdout, task, DEFAULT_ALIGNMENT);
             *ht_find_or_put(ht_tasks_set, task->uuid) = task;
         }
     }
@@ -531,7 +532,7 @@ end:
     nob_log(NOB_DEBUG, "Result: ");
     if (minimal_log_level == NOB_DEBUG) {
         for (u32 i = 0; i < prev_inner_ite; ++i) {
-            print_task(stdout, result[i]);
+            print_task(stdout, result[i], DEFAULT_ALIGNMENT);
         }
     }
     nob_log(NOB_DEBUG, "-------------------------");
@@ -560,6 +561,44 @@ u32 filter_by_name(const tasks_t *tasks, String_View name, task_t **result)
     free(name_cstr);
     free(sb.items);
     return result_ite;
+}
+
+ void reverse(char s[])
+{
+    int i, j;
+    char c;
+
+    for (i = 0, j = strlen(s)-1; i<j; i++, j--) {
+        c = s[i];
+        s[i] = s[j];
+        s[j] = c;
+    }
+}
+
+char *itoa(int a)
+{
+    char *result = calloc(16, sizeof(char));
+    int i = 0;
+    do  {
+        result[i++] = a % 10 + '0';
+    } while ((a /= 10) > 0 && i < 16);
+    reverse(result);
+    return result;
+}
+
+size_t find_best_alignment(task_t *tasks, u32 tasks_len)
+{
+    size_t alignment = DEFAULT_ALIGNMENT;
+    for (u32 i = 0; i < tasks_len; ++i) {
+        char *priority_cstr = itoa(tasks[i].priority);
+        size_t len = strlen(priority_cstr);
+        if (len > alignment) {
+            alignment = len;
+        }
+
+        free(priority_cstr);
+    }
+    return alignment;
 }
 
 // pre-defined tags: .OPEN, .CLOSED, .UNTAGGED, .TAGGED (not .UNTAGGED)
@@ -641,8 +680,10 @@ bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens, bool reversed)
         if (reversed) qsort(ordered, n, sizeof(task_t), cmp_tasks_rev_void);
         else qsort(ordered, n, sizeof(task_t), cmp_tasks_void);
 
+        size_t alignment = find_best_alignment(ordered, n);
+
         for (u32 i = 0; i < n; ++i) {
-            print_task(stdout, &ordered[i]);
+            print_task(stdout, &ordered[i], alignment);
         }
     } else {
         if (name_filtering) {
@@ -849,3 +890,17 @@ void init_directory(const char *tasks_dir)
     }
     free(parent_tasks_dir);
 }
+
+/*
+ * ├ ─ │ └
+ *
+ * your-project/
+ * ├── tasks/
+ * │   ├── 20260331-144635/
+ * │   │   └── TASK.md
+ * │   ├── 20260330-202358/
+ * │   │   └── TASK.md
+ * │   └── 20260329-123700/
+ * │       └── TASK.md
+ * └── ...
+ */

@@ -34,6 +34,7 @@
 #define BIN_DIR         BUILD_DIR"bin/"
 
 #define TASKS_DIR "./tasks/"
+#define DEFAULT_ALIGNMENT 2
 
 typedef int8_t s8;
 typedef int16_t s16;

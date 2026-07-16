@@ -52,7 +52,7 @@ int main(int argc, char **argv)
     else if (opts.find_task) {
         task_t *task = find_task(&tasks, opts.find_task);
         if (!task) return_defer(1);
-        print_task(stdout, task);
+        print_task(stdout, task, DEFAULT_ALIGNMENT);
     }
     else if (opts.remove_tasks) {
         remove_tasks(&tasks, &opts.filters);
