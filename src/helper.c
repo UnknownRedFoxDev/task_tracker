@@ -262,5 +262,7 @@ char *find_tasks_dir(const char *cwd)
         free(cwd_parent_dir);
     }
 
-    return strdup(result);
+    if (result != NULL)
+        return strdup(result);
+    return result;
 }

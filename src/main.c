@@ -16,14 +16,6 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    minimal_log_level = ERROR;
-    mkdir_if_not_exists(tasks_dir);
-#ifdef DEBUG
-    minimal_log_level = NOB_DEBUG;
-#else
-    minimal_log_level = INFO;
-#endif // DEBUG
-
     if (!parse_tasks(tasks_dir, &tasks)) return_defer(1);
 
     if (opts.list_tasks || opts.list_tasks_reversed) {
