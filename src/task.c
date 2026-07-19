@@ -750,6 +750,19 @@ task_t *create_task(const char *path, const char *task_name, cmdline_opts_t *opt
     result->tags.hasheq = ht_cstr_hasheq;
 
     nob_log(INFO, "Created task at: %s%s/TASK.md%s", COLOR_RED, task_path, COLOR_RESET);
+    Nob_Cmd cmd = {0};
+    cmd_append(&cmd, "wl-copy");
+    cmd_append(&cmd, "-n");
+    cmd_append(&cmd, temp_sprintf("TASK(%s): %s", dir_name, task_name));
+    minimal_log_level = WARNING;
+    if (!cmd_run(&cmd)) {
+        nob_log(WARNING, "Failed to copy HUID to clipboard. Is wl-copy installed?");
+    }
+#ifdef DEBUG
+    minimal_log_level = WARNING;
+#else
+    minimal_log_level = INFO;
+#endif // DEBUG
 
 defer:
     free(sb.items);
