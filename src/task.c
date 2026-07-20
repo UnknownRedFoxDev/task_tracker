@@ -146,7 +146,7 @@ void print_task(FILE *stream, task_t *task, int alignment)
         sb.items[sb.count-1] = ']';
     }
     sb_appendf(&sb, " %s\n", task->name);
-sb_append_null(&sb);
+    sb_append_null(&sb);
     fprintf(stream, "%s", sb.items);
     free(sb.items);
     sb.items = NULL;
@@ -391,7 +391,6 @@ char *str_to_lower(const char *cstr)
 }
 
 /*
- * 20260621-110728:
  * When doing `not <tag>` or `<tag1> and <tag2>` or `<tag1> or <tag2>`, I'm not comparing tags, I'm comparing lists created from the tags and filtering the remainder
  * so when `<tag1> and (<tag2> or <tag3>)` I should be comparing list of tag1, with the last made of at least tag2 or tag3
  */
@@ -432,12 +431,6 @@ u32 eval_tokens(const tasks_t *tasks, String_View *tokens, task_t **result)
             }
             eval_and_put(tasks, result, result_ite, &ht_tasks_set, curr_mode, prev_mode, next_token);
             free(extracted_tokens);
-            goto end;
-
-        // -=-=-=-=-=-=-=-=-=-=-= PARSING BY NAME =-=-=-=-=-=-=-=-=-=-=-
-        } else if (!sv_starts_with(curr_token, sv_from_cstr(".")) &&
-                   (!sv_eq(curr_token, sv_from_cstr("and")) && !sv_eq(curr_token, sv_from_cstr("or")) && !sv_eq(curr_token, sv_from_cstr("not")))) {
-
             goto end;
         } else {
             nob_log(NOB_DEBUG, "Getting next token:");
@@ -770,13 +763,64 @@ defer:
     return result;
 }
 
-bool parse_task(const char *path, const char *uuid, task_t *task)
+void initialise_tasks()
+{
+    *ht_put(&__g_stats, "OPEN") = 0;
+    *ht_put(&__g_stats, "CLOSED") = 0;
+    *ht_put(&__g_stats, "TOTAL") = 0;
+    *ht_put(&__g_stats, "UNTAGGED") = 0;
+}
+
+// bool parse_subtasks(const char *path, subtasks_t *subtasks, const task_t *parent)
+// {
+//     File_Paths tasks_uuid = {0};
+//     read_entire_dir(path, &tasks_uuid);
+//
+//     da_foreach (const char *, uuid, &tasks_uuid) {
+//         if (!sv_starts_with(sv_from_cstr(*uuid), sv_from_cstr("."))) {
+//             subtask_t subtask = {0};
+//             parse_task(path, *uuid, subtask.self);
+//             subtask.parent = parent;
+//             da_append(subtasks, subtask);
+//         }
+//     }
+//
+//     free(tasks_uuid.items);
+//     return true;
+// }
+
+bool parse_task(const char *path, const char *uuid, task_t *task, tasks_t *tasks)
 {
     String_Builder sb = {0};
     String_View sv = {0};
     bool result = true;
 
-    if (!read_entire_file(temp_sprintf("%s/%s/TASK.md", path, uuid), &sb)) {
+    const char *task_path = temp_sprintf("%s/%s/", path, uuid);
+
+    File_Paths paths = {0};
+    if (!read_entire_dir(task_path, &paths)) {
+        nob_log(ERROR, "Task(%s) directory was not found", uuid);
+        return_defer(false);
+    }
+
+    size_t checkpoint = temp_save();
+
+    if (paths.count > 2) { // Each directory has the obligatory . and ..
+        task->subtasks = calloc(1, sizeof(tasks_t));
+        da_foreach (const char *, path, &paths) {
+            temp_rewind(checkpoint);
+            const char *full_path = temp_sprintf("%s%s", task_path, *path);
+            Nob_File_Type ft = nob_get_file_type(full_path);
+            if (ft == NOB_FILE_DIRECTORY && *path[0] != '.' && strstr(full_path, "tasks/")) { // Exclude '.', '..', '.git', etc
+                parse_tasks(full_path, tasks, task, task->subtasks);
+                break;
+            }
+        }
+    }
+
+    free(paths.items);
+
+    if (!read_entire_file(temp_sprintf("%sTASK.md", task_path), &sb)) {
         nob_log(WARNING, "Task(%s) directory was found, but no TASK.md was found inside.", uuid);
         return_defer(false);
     }
@@ -826,20 +870,21 @@ defer:
     return result;
 }
 
-bool parse_tasks(const char *path, tasks_t *tasks)
+bool parse_tasks(const char *path, tasks_t *tasks, const task_t *parent, tasks_t *subtasks)
 {
     File_Paths tasks_uuid = {0};
     read_entire_dir(path, &tasks_uuid);
-    *ht_put(&__g_stats, "OPEN") = 0;
-    *ht_put(&__g_stats, "CLOSED") = 0;
-    *ht_put(&__g_stats, "TOTAL") = 0;
-    *ht_put(&__g_stats, "UNTAGGED") = 0;
 
     da_foreach (const char *, uuid, &tasks_uuid) {
         if (!sv_starts_with(sv_from_cstr(*uuid), sv_from_cstr("."))) {
-            task_t task = {0};
-            parse_task(path, *uuid, &task);
-            da_append(tasks, task);
+                task_t task = {0};
+                parse_task(path, *uuid, &task, tasks);
+                da_append(tasks, task);
+
+            if (parent != NULL && subtasks != NULL) {
+                task.parent = parent;
+                da_append(subtasks, task);
+            }
         }
     }
 
@@ -850,8 +895,15 @@ bool parse_tasks(const char *path, tasks_t *tasks)
 void free_task(task_t *task)
 {
     free(task->name);
+    task->name = NULL;
     free(task->uuid);
+    task->uuid = NULL;
     free(task->path);
+    task->path = NULL;
+
+    free(task->subtasks);
+    task->subtasks = NULL;
+
     ht_free(&task->tags);
 }
 

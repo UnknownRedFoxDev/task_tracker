@@ -16,7 +16,8 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    if (!parse_tasks(tasks_dir, &tasks)) return_defer(1);
+    initialise_tasks();
+    if (!parse_tasks(tasks_dir, &tasks, NULL, NULL)) return_defer(1);
 
     if (opts.list_tasks || opts.list_tasks_reversed) {
         print_tasks(&tasks, &opts.filters, opts.list_tasks_reversed);
