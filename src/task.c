@@ -134,7 +134,7 @@ bool open_task(task_t *task)
 void print_task(FILE *stream, task_t *task, int alignment)
 {
     String_Builder sb = {0};
-    sb_appendf(&sb, "%s%s/TASK.md%s:%s1%s: ", COLOR_RED, task->uuid, COLOR_RESET, COLOR_YELLOW, COLOR_RESET);
+    sb_appendf(&sb, "%s./tasks/%s/TASK.md%s:%s1%s: ", COLOR_RED, task->uuid, COLOR_RESET, COLOR_YELLOW, COLOR_RESET);
     sb_appendf(&sb, "[PRIORITY: %-*zu ", alignment, task->priority);
     if (task->tags.count) {
         sb_appendf(&sb, ", TAGS: ");
