@@ -14,11 +14,16 @@ tatr \- a task tracker tooling to keep track of your tasks
 .B ls
 .RI [\| "ls options" \|]
 .br
-.B tatr edit
+.B tatr
+.B edit
 .I <task-id>
 .br
 .B tatr
 .B find
+.IR <task-id>
+.br
+.B tatr
+.B cat
 .IR <task-id>
 .br
 .B tatr
@@ -28,6 +33,11 @@ tatr \- a task tracker tooling to keep track of your tasks
 .br
 .B tatr
 .B close
+.I <task-id>
+\&.\|.\|.\&
+.br
+.B tatr
+.B reopen
 .I <task-id>
 \&.\|.\|.\&
 .br
@@ -42,7 +52,7 @@ tatr \- a task tracker tooling to keep track of your tasks
 \&.\|.\|.\&
 .br
 .B tatr
-.B summary
+.B sum[mary]
 .SH DESCRIPTION
 .B tatr
 is a task tracker utility tooling. It enables the end-user to track the up-and-coming tasks to do. The tooling can create
@@ -91,6 +101,10 @@ directory, it does not yet exists.
 .br
 Displays the information of a task, provided by its id.
 .TP
+.BI tatr\ cat \ <task-id>
+.br
+Prints to the terminal the information of a task, provided by its id.
+.TP
 .B tatr summary
 .br
 Displays general information about the tasks. Statistics relative to the tags and amount of tasks.
@@ -105,13 +119,17 @@ of choice the task provided by its id. Defaults to vim.
 .br
 Closes the task or tasks provided by their id.
 .TP
+.BI tatr\ reopen \ <task-id> \ \&.\|.\|.\&
+.br
+Reopens the task or tasks provided by their id.
+.TP
 .BI tatr\ rm \ <task-id> \ \&.\|.\|.\&
 .br
 Deletes the task or tasks provided by their id. Using
 .BI tatr \ del
 also works the same.
 .TP
-.B tatr\ ls\ [\|ls\ options\|]
+.B tatr\ ls\ [\|ls\ options\|]\ [\|"<name>"\|]
 .br
 Displays every task answering to the query given by
 .IR ls\ options \&.\&
@@ -140,6 +158,11 @@ unless otherwise specified
 .BR .all ,
 or
 .BR .CLOSED \ tags.
+.br
+Moreover, filtering by
+.I name
+is mutually exclusive to filtering by
+.IR tags .
 .TP
 .BI tatr\ new\ \-t \ <tag>,\&.\|.\|.\& \ \-p \ <int>\ "title"
 Creates a new task of title
@@ -157,15 +180,32 @@ tatr ls .CLOSED and .feature
 .br
 Lists closed tasks having the feature tag
 .TP
+tatr ls "this debug f"
+.br
+Lists all of the tasks featuring to an extent "this debug f" in their task name
+.TP
 tatr ls .all and .debug
 .br
 Lists all opened and closed tasks having the debug tag
 .TP
-tatr ls .all and .debug or .feature
+tatr ls .debug or .feature
 .br
-Lists all opened and closed tasks having the debug or feature tags
+Lists all opened tasks having the debug or feature tags
+.TP
+tatr cat 20260727-133742
+.br
+Prints to the stdout the details of task 20260727-133742
+.TP
+tatr close 20260727-133742 20260420-012345
+.br
+Closes both tasks
 .SH NOTES
-To be noted that as of 2026-07-03, the filtering system still lacks enclosing with parenthesis and name filtering.
+.TP
+As of 2026-07-03, the filtering system still lacks enclosing with parenthesis and name filtering.
+.TP
+As of 2026-07-04, the filtering system now fully supports enclosing with parenthesis
+.TP
+As of 2026-07-06, you can now either filter by name or by tags
 .SH AUTHORS
 Designed, implemented and improved by
 .B UnknownRedFoxo

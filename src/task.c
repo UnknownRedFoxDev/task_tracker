@@ -752,7 +752,7 @@ task_t *create_task(const char *path, const char *task_name, cmdline_opts_t *opt
         nob_log(WARNING, "Failed to copy HUID to clipboard. Is wl-copy installed?");
     }
 #ifdef DEBUG
-    minimal_log_level = WARNING;
+    minimal_log_level = DEBUG;
 #else
     minimal_log_level = INFO;
 #endif // DEBUG
