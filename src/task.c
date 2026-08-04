@@ -540,7 +540,7 @@ u32 filter_by_name(const tasks_t *tasks, String_View name, task_t **result)
 
     String_Builder sb = {0};
     sb_appendf(&sb, SV_Fmt, SV_Arg(name));
-    char *name_cstr = strdup(sb.items);
+    char *name_cstr = str_to_lower(sb.items);
     u32 result_ite = 0;
 
     da_foreach (task_t, task, tasks) {
@@ -840,7 +840,7 @@ bool parse_task(const char *path, const char *uuid, task_t *task, tasks_t *tasks
 
     // - STATUS: CLOSED|OPEN
     String_View status = sv_chop_by_delim(&sv, '\n');
-    sv_chop_prefix(&status, sv_from_cstr("- STATUS: "));
+    sv_chop_left(&status, sizeof("- STATUS: ") - 1);
     const char *cstatus = temp_sv_to_cstr(status);
     *ht_find_or_put(&__g_stats, cstatus) += 1;
     *ht_put(&task->tags, cstatus) = true;
@@ -848,7 +848,7 @@ bool parse_task(const char *path, const char *uuid, task_t *task, tasks_t *tasks
 
     // - PRIORITY: UINT
     String_View priority = sv_chop_by_delim(&sv, '\n');
-    sv_chop_prefix(&priority, sv_from_cstr("- PRIORITY: "));
+    sv_chop_left(&priority, sizeof("- PRIORITY: ") - 1);
     task->priority = temp_sv_to_int(priority);
 
     // - TAGS: <tag1>,<tag2>,<tag3>,...

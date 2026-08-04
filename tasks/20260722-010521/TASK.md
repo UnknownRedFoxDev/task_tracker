@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 80
-- TAGS: feature,cmdline-option,ui
+- TAGS: feature,cmdline-options,ui
 
 Create a user-interface for the terminal using something like ncurses.
 
