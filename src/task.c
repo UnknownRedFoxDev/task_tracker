@@ -876,14 +876,18 @@ bool parse_tasks(const char *path, tasks_t *tasks, const task_t *parent, tasks_t
     read_entire_dir(path, &tasks_uuid);
 
     da_foreach (const char *, uuid, &tasks_uuid) {
-        if (!sv_starts_with(sv_from_cstr(*uuid), sv_from_cstr("."))) {
-                task_t task = {0};
-                parse_task(path, *uuid, &task, tasks);
-                da_append(tasks, task);
+        const char *full_path = temp_sprintf("%s/%s", path, *uuid);
+        Nob_File_Type ft = nob_get_file_type(full_path);
+        if (ft == NOB_FILE_DIRECTORY) {
+            if (!sv_starts_with(sv_from_cstr(*uuid), sv_from_cstr("."))) {
+                    task_t task = {0};
+                    parse_task(path, *uuid, &task, tasks);
+                    da_append(tasks, task);
 
-            if (parent != NULL && subtasks != NULL) {
-                task.parent = parent;
-                da_append(subtasks, task);
+                if (parent != NULL && subtasks != NULL) {
+                    task.parent = parent;
+                    da_append(subtasks, task);
+                }
             }
         }
     }

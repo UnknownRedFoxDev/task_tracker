@@ -16,6 +16,11 @@ int main(int argc, char **argv)
         exit(1);
     }
 
+    if (opts.init_dir) {
+        init_directory(tasks_dir);
+        goto defer;
+    }
+
     initialise_tasks();
     if (!parse_tasks(tasks_dir, &tasks, NULL, NULL)) return_defer(1);
 
@@ -55,9 +60,6 @@ int main(int argc, char **argv)
     }
     else if (opts.reopen_tasks) {
         change_tasks_status(&tasks, &opts.filters, OPEN);
-    }
-    else if (opts.init_dir) {
-        init_directory(tasks_dir);
     }
 
 defer:
