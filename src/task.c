@@ -76,7 +76,7 @@ bool read_file_until_n_line(const char *path, s32 n, String_Builder *file_buffer
         file_buffer_reader->count -= file_buffer_reader->count - cursor; // remove the content after the cursor
         if (n > 2 && n < 6) {
             while (file_buffer_reader->items[file_buffer_reader->count--] != ' ');
-            file_buffer_reader->count++; // STATUS -> STATUS:
+            file_buffer_reader->count += 2; // STATUS -> STATUS:
         }
     } else {
         return false;
@@ -1072,26 +1072,58 @@ bool overwrite_task(tasks_t *tasks, task_info_t *info)
                     return_defer(true);
                 }
 
-                if (!read_file_until_n_line(task_md_path, 5, &sb, &temp_sb)) return_defer(false);
-                nob_log(INFO, "%*s", (int)sb.count-1, sb.items);
-                // if (tag_already_present) {
-                //     if (tag_mode == OVERWRITE_SUB) {
-                //         String_Builder read_tag = {0};
-                //         size_t i = sb.count;
-                //         while (sb.items[sb.count++] != '\n') {
-                //             while (sb.items[i] != ',') {
-                //                 sb_appendf(&read_tag, "%c", sb.items[i++]);
-                //             }
-                //             sb_append_null(&read_tag);
-                //             nob_log(INFO, "read tag: %s", read_tag.items);
-                //             read_tag.count = 0;
-                //             sb.count += i;
-                //         }
-                //     }
-                // } else {
-                // }
-                sb_append_buf(&sb, temp_sb.items, temp_sb.count);
-                if (!write_entire_file(task_md_path, sb.items, sb.count)) return_defer(false);
+                if (tag_already_present) {
+                    if (!read_file_until_n_line(task_md_path, 5, &sb, &temp_sb)) return_defer(false);
+                    // nob_log(INFO, "%*s", (int)sb.count-1, sb.items);
+                    // asm("int3");
+                    bool read_tag_found = false;
+                    size_t total_count = 0;
+                    if (tag_mode == OVERWRITE_SUB) {
+                        String_Builder read_tag = {0};
+                        size_t ite = 0;
+                        size_t character_count = 0;
+
+                        while (sb.items[sb.count++] != '\n') character_count++;
+                        sb.count -= character_count + 1;
+                        total_count = character_count;
+
+                        do {
+                            while (sb.items[sb.count + ite] != ',') {
+                                sb_appendf(&read_tag, "%c", sb.items[sb.count + ite]);
+                                nob_log(INFO, "%c", read_tag.items[ite]);
+                                ite += 1;
+                            }
+                            sb_append_null(&read_tag);
+                            character_count -= ite + 1; // +1 to account for the comma
+
+                            nob_log(INFO, "read tag: %s", read_tag.items);
+                            if (strcmp(read_tag.items, tag) == 0) {
+                                read_tag_found = true;
+                                nob_log(INFO, "Found target tag");
+                                // TAGS: test,bug,cmdline-options\n < file
+                                // TAGS: test,cmdline-options\n     < sb
+                                sb_append_buf(&sb, sb.items + sb.count + ite + 1, character_count + 1);
+                                break;
+                            }
+
+
+                            sb.count += ite+1;
+                            read_tag.count = 0;
+                            ite = 0;
+                        } while (sb.items[sb.count] != '\n');
+                    }
+
+                    if (!read_tag_found) {
+                        sb_append_buf(&sb, sb.items + sb.count - total_count - 1, total_count + 1);
+                    }
+
+                    sb_append_buf(&sb, temp_sb.items, temp_sb.count);
+                    if (!write_entire_file(task_md_path, sb.items, sb.count)) return_defer(false);
+                } else {
+                    if (tag_mode == OVERWRITE_SUB) {
+                        nob_log(WARNING, "Tag: \"%s\" for task(%s) was not found.", tag, task->uuid);
+                    }
+                }
 
                 if (i < a.count) {
                     a.count -= i + 1;
