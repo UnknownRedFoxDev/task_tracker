@@ -45,6 +45,19 @@ typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
 
+typedef enum {
+    CLOSED,
+    OPEN,
+} task_status;
+
+typedef struct {
+    char *title;
+    char *tags;
+    char *task_id;
+    char *priority;
+    task_status status;
+} task_info_t;
+
 typedef struct cmdline_opts_s {
     bool  help;
     bool  list_tasks;
@@ -57,9 +70,8 @@ typedef struct cmdline_opts_s {
     char *cat_task;
     char *edit_task;
     char *find_task;
-    char *create_task;
-    char *create_task_tags;
-    u16   create_task_priority;
+    task_info_t *create_task;
+    task_info_t *overwrite_task;
     Flag_List_Mut filters;
 } cmdline_opts_t;
 

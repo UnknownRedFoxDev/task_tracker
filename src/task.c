@@ -58,25 +58,28 @@ bool remove_tasks(tasks_t *tasks, Flag_List_Mut *tasks_uuid)
     return true;
 }
 
-bool read_file_until_status(const char *path, String_Builder *file_buffer_reader, String_Builder *buffer_for_whatever_is_after)
+bool read_file_until_n_line(const char *path, s32 n, String_Builder *file_buffer_reader, String_Builder *buffer_for_whatever_is_after)
 {
     if (!read_entire_file(path, file_buffer_reader)) return false;
-    u32 file_pointer = 0;
+    u32 cursor = 0;
 
-    while (file_buffer_reader->items[file_pointer++] != '\n'); // # <title>\n
-    file_pointer += 1;                                         // \n
-    while (file_buffer_reader->items[file_pointer++] != '\n'); // # - STATUS: OPEN\n
+    for (s32 i = 0; i < n; ++i) {
+        while (file_buffer_reader->items[cursor++] != '\n'); // # <title>\n
+    }
 
-    for (u32 i = file_pointer; i < file_buffer_reader->count; ++i) {
+    for (u32 i = cursor; i < file_buffer_reader->count; ++i) {
         sb_append(buffer_for_whatever_is_after, file_buffer_reader->items[i]);
     }
 
-    file_buffer_reader->count -= file_buffer_reader->count - file_pointer;
-    while (file_buffer_reader->items[file_buffer_reader->count--] != ' ');
-    file_buffer_reader->count++; // STATUS -> STATUS:
+    file_buffer_reader->count -= file_buffer_reader->count - cursor; // remove the content after the cursor
+    if (n > 2 && n < 6) {
+        while (file_buffer_reader->items[file_buffer_reader->count--] != ' ');
+        file_buffer_reader->count++; // STATUS -> STATUS:
+    }
     return true;
 }
 
+// TASK(20260805-161529): Change close and reopen cmdline options to use overwrite function rather than having its own thing
 bool change_task_status(task_t *task, task_status new_status)
 {
     const char *task_md_path = temp_sprintf("%s/%s/TASK.md", task->path, task->uuid);
@@ -84,7 +87,13 @@ bool change_task_status(task_t *task, task_status new_status)
     String_Builder temp_sb = {0};
     bool result = true;
 
-    if (!read_file_until_status(task_md_path, &sb, &temp_sb)) return_defer(false);
+    // 1 | # <title>\n
+    // 2 | \n
+    // 3 | - STATUS: <STATUS>\n
+    // 4 | - PRIORITY: <PRIORITY>\n
+    // 5 | - TAGS: <TAGS>\n
+    // 6 | \n
+    if (!read_file_until_n_line(task_md_path, 3, &sb, &temp_sb)) return_defer(false);
 
     sb_appendf(&sb, " %s\n", task_status_to_cstr(new_status));
     sb_append_buf(&sb, temp_sb.items, temp_sb.count);
@@ -697,7 +706,7 @@ defer:
 }
 
 
-task_t *create_task(const char *path, const char *task_name, cmdline_opts_t *opts)
+task_t *create_task(const char *path, task_info_t *info)
 {
     String_Builder sb = {0};
     task_t *result = calloc(1, sizeof(task_t));
@@ -705,15 +714,18 @@ task_t *create_task(const char *path, const char *task_name, cmdline_opts_t *opt
         nob_log(ERROR, "Failed to calloc a task_t");
         return NULL;
     }
+    char *task_name = info->title;
 
     int priority = 100;
-    if (opts->create_task_priority > 0) {
-        priority = opts->create_task_priority;
+    if (info->priority != NULL) {
+        if (atoi(info->priority) > 0) {
+            priority = atoi(info->priority);
+        }
     }
 
     char *tags = "";
-    if (opts->create_task_tags != NULL) {
-        tags = opts->create_task_tags;
+    if (info->tags != NULL) {
+        tags = info->tags;
     }
 
     sb_appendf(&sb, "# %s\n", task_name);
@@ -958,6 +970,91 @@ void init_directory(const char *tasks_dir)
         mkdir_if_not_exists(temp_sprintf("%s/tasks", cwd));
     }
     free(parent_tasks_dir);
+}
+
+typedef enum {
+    OVERWRITE_SET,
+    OVERWRITE_ADD,
+    OVERWRITE_SUB,
+    __overwrite_mode_count
+} overwrite_mode;
+
+// TASK(20260805-161529): Change close and reopen cmdline options to use overwrite function rather than having its own thing
+bool overwrite_task(tasks_t *tasks, task_info_t *info)
+{
+    if (info->task_id == NULL) {
+        nob_log(ERROR, "Failed to overwrite task: no task huid was provided");
+        return false;
+    }
+
+    da_foreach (task_t, task, tasks) {
+        if (strcmp(task->uuid, info->task_id) != 0) continue;
+
+        overwrite_mode priority_mode = OVERWRITE_SET;
+        overwrite_mode tags_mode     = OVERWRITE_SET;
+        const char *task_md_path = temp_sprintf("%s/%s/TASK.md", task->path, task->uuid);
+        String_Builder sb = {0};
+        String_Builder temp_sb = {0};
+        bool result = true;
+
+        // 1 | # <title>\n
+        // 2 | \n
+        // 3 | - STATUS: <STATUS>\n
+        // 4 | - PRIORITY: <PRIORITY>\n
+        // 5 | - TAGS: <TAGS>\n
+        // 6 | \n
+        // -=-=-=-=-=-=-=-=-=-=-= PRIORITY =-=-=-=-=-=-=-=-=-=-=-
+        if (info->priority != NULL) {
+            String_View a = sv_from_cstr(info->priority);
+            if (sv_starts_with(a, sv_from_cstr("+"))) {
+                priority_mode = OVERWRITE_ADD;
+            } else if (sv_starts_with(a, sv_from_cstr("-"))) {
+                priority_mode = OVERWRITE_SUB;
+            }
+
+            int new_priority = atoi(info->priority);
+            int old_priority = task->priority;
+            if (new_priority > 0) {
+                switch (priority_mode) {
+                    case OVERWRITE_SET:
+                        task->priority = new_priority;
+                        break;
+                    case OVERWRITE_ADD:
+                        task->priority += new_priority;
+                        break;
+                    case OVERWRITE_SUB:
+                        task->priority -= new_priority;
+                        break;
+                    default:
+                        UNREACHABLE("priority: overwrite_mode");
+                }
+                if (!read_file_until_n_line(task_md_path, 4, &sb, &temp_sb)) return_defer(false);
+                task->priority = new_priority;
+                sb_appendf(&sb, " %s\n", task_status_to_cstr(new_priority));
+                sb_append_buf(&sb, temp_sb.items, temp_sb.count);
+                if (!write_entire_file(task_md_path, sb.items, sb.count)) return_defer(false);
+                nob_log(INFO, "Changed task(%s) priority from %d to %d", task->uuid, old_priority, new_priority);
+            }
+        }
+
+        // -=-=-=-=-=-=-=-=-=-=-= TAGS =-=-=-=-=-=-=-=-=-=-=-
+        if (info->tags != NULL) {
+            String_View b = sv_from_cstr(info->tags);
+            nob_log(INFO, "tags: "SV_Fmt, SV_Arg(b));
+            // if (sv_starts_with(a, sv_from_cstr("+"))) {
+            //     priority_mode = OVERWRITE_ADD;
+            // } else if (sv_starts_with(a, sv_from_cstr("-"))) {
+            //     priority_mode = OVERWRITE_SUB;
+            // }
+        }
+
+
+defer:
+        free(sb.items);
+        free(temp_sb.items);
+        return true;
+    }
+    return false;
 }
 
 /*

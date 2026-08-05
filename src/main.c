@@ -28,7 +28,7 @@ int main(int argc, char **argv)
         print_tasks(&tasks, &opts.filters, opts.list_tasks_reversed);
     }
     else if (opts.create_task) {
-        task_t *task = create_task(tasks_dir, opts.create_task, &opts);
+        task_t *task = create_task(tasks_dir, opts.create_task);
         if (task->path != NULL) {
             open_task(task);
         }
@@ -60,6 +60,9 @@ int main(int argc, char **argv)
     }
     else if (opts.reopen_tasks) {
         change_tasks_status(&tasks, &opts.filters, OPEN);
+    }
+    else if (opts.overwrite_task) {
+        overwrite_task(&tasks, opts.overwrite_task);
     }
 
 defer:

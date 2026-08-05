@@ -42,6 +42,10 @@ void usage(FILE *stream)
     fprintf(stream, "\n");
     fprintf(stream, "    reopen <task-id> [...]\n");
     fprintf(stream, "      Reopens the task(s) specified.\n");
+    fprintf(stream, "\n");
+    // TASK(20260805-022652): Implement overwrite cmdline
+    fprintf(stream, "    overwrite <task-id> [-t [+|-]<tags> ...] [-p [+|-]<priority>] [title]\n");
+    fprintf(stream, "      overwrite a task's tags, priority and title, if any supplied. Empty fields after `task-id` will do nothing.\n");
 }
 
 void parse_options(int argc, char **argv, cmdline_opts_t *opts)
@@ -64,20 +68,23 @@ void parse_options(int argc, char **argv, cmdline_opts_t *opts)
             opts->summary = true;
             break;
         } else if (strcmp(flag, "new") == 0) {
-            opts->create_task_priority = 0;
-            opts->create_task_tags = NULL;
+            opts->create_task = calloc(1, sizeof(task_info_t));
+            assert(opts->create_task != NULL && "Failed to allocated space for overwrite's task info structure");
+
+            opts->create_task->priority = NULL;
+            opts->create_task->tags = NULL;
             while (argc > 0) {
                 flag = shift(argv, argc);
                 if (argc > 0) {
                     if (strcmp(flag, "-t") == 0) {
-                        opts->create_task_tags = shift(argv, argc);
+                        opts->create_task->tags = shift(argv, argc);
                     } else if (strcmp(flag, "-p") == 0) {
-                        opts->create_task_priority = atoi(shift(argv, argc));
+                        opts->create_task->priority = shift(argv, argc);
                     } else {
-                        opts->create_task = flag;
+                        opts->create_task->title = flag;
                     }
                 } else {
-                    opts->create_task = flag;
+                    opts->create_task->title = flag;
                 }
             }
             break;
@@ -105,6 +112,7 @@ void parse_options(int argc, char **argv, cmdline_opts_t *opts)
         } else if (strcmp(flag, "rm") == 0 || strcmp(flag, "del") == 0) {
             opts->remove_tasks = true;
             break;
+        // TASK(20260805-161529): Change close and reopen cmdline options to use overwrite function rather than having its own thing
         } else if (strcmp(flag, "close") == 0) {
             opts->close_tasks = true;
             break;
@@ -114,7 +122,38 @@ void parse_options(int argc, char **argv, cmdline_opts_t *opts)
         } else if (strcmp(flag, "init") == 0) {
             opts->init_dir = true;
             break;
+        } else if (strcmp(flag, "overwrite") == 0) {
+            opts->overwrite_task = calloc(1, sizeof(task_info_t));
+            assert(opts->overwrite_task != NULL && "Failed to allocated space for overwrite's task info structure");
+
+            opts->overwrite_task->priority = NULL;
+            opts->overwrite_task->tags = NULL;
+            opts->overwrite_task->title = NULL;
+            opts->overwrite_task->task_id = NULL;
+            if (argc > 0) {
+                opts->overwrite_task->task_id = shift(argv, argc);
+            } else {
+                usage(stderr);
+                exit(1);
+            }
+
+            while (argc > 0) {
+                flag = shift(argv, argc);
+                if (argc > 0) {
+                    if (strcmp(flag, "-t") == 0) {
+                        opts->overwrite_task->tags = shift(argv, argc);
+                    } else if (strcmp(flag, "-p") == 0) {
+                        opts->overwrite_task->priority = shift(argv, argc);
+                    } else {
+                        opts->overwrite_task->title = flag;
+                    }
+                } else {
+                    opts->overwrite_task->title = flag;
+                }
+            }
+            break;
         }
+
     }
 
     if (argc) {
