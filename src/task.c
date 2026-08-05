@@ -1073,24 +1073,21 @@ bool overwrite_task(tasks_t *tasks, task_info_t *info)
                 }
 
                 if (tag_already_present) {
-                    if (!read_file_until_n_line(task_md_path, 5, &sb, &temp_sb)) return_defer(false);
-                    // nob_log(INFO, "%*s", (int)sb.count-1, sb.items);
-                    // asm("int3");
-                    bool read_tag_found = false;
-                    size_t total_count = 0;
                     if (tag_mode == OVERWRITE_SUB) {
+                        if (!read_file_until_n_line(task_md_path, 5, &sb, &temp_sb)) return_defer(false);
+                        bool read_tag_found = false;
+                        size_t total_count = 0;
                         String_Builder read_tag = {0};
                         size_t ite = 0;
-                        size_t character_count = 0;
+                        s32 character_count = 0;
 
                         while (sb.items[sb.count++] != '\n') character_count++;
                         sb.count -= character_count + 1;
                         total_count = character_count;
 
                         do {
-                            while (sb.items[sb.count + ite] != ',') {
+                            while (sb.items[sb.count + ite] != ',' && sb.items[sb.count + ite] != '\n') {
                                 sb_appendf(&read_tag, "%c", sb.items[sb.count + ite]);
-                                nob_log(INFO, "%c", read_tag.items[ite]);
                                 ite += 1;
                             }
                             sb_append_null(&read_tag);
@@ -1102,26 +1099,39 @@ bool overwrite_task(tasks_t *tasks, task_info_t *info)
                                 nob_log(INFO, "Found target tag");
                                 // TAGS: test,bug,cmdline-options\n < file
                                 // TAGS: test,cmdline-options\n     < sb
+                                if (sb.items[sb.count + ite + 1] == '\n') {
+                                    sb.count -= 1; // If tag is at the end of the list, remove the last comma off it.
+                                    character_count += 1; // In reverse, character count is probably negative, so cancel that out
+                                }
                                 sb_append_buf(&sb, sb.items + sb.count + ite + 1, character_count + 1);
                                 break;
                             }
-
 
                             sb.count += ite+1;
                             read_tag.count = 0;
                             ite = 0;
                         } while (sb.items[sb.count] != '\n');
-                    }
 
-                    if (!read_tag_found) {
-                        sb_append_buf(&sb, sb.items + sb.count - total_count - 1, total_count + 1);
-                    }
+                        if (!read_tag_found) {
+                            sb_append_buf(&sb, sb.items + sb.count - total_count - 1, total_count + 1);
+                        }
 
-                    sb_append_buf(&sb, temp_sb.items, temp_sb.count);
-                    if (!write_entire_file(task_md_path, sb.items, sb.count)) return_defer(false);
+                        sb_append_buf(&sb, temp_sb.items, temp_sb.count);
+                        if (!write_entire_file(task_md_path, sb.items, sb.count)) return_defer(false);
+                    } else if (tag_mode == OVERWRITE_ADD) {
+                        nob_log(WARNING, "Tag: \"%s\" for task(%s) is already present. Addition cancelled", tag, task->uuid);
+                    }
                 } else {
                     if (tag_mode == OVERWRITE_SUB) {
-                        nob_log(WARNING, "Tag: \"%s\" for task(%s) was not found.", tag, task->uuid);
+                        nob_log(WARNING, "Tag: \"%s\" for task(%s) was not found. Deletion cancelled", tag, task->uuid);
+                    } else if (tag_mode == OVERWRITE_ADD) {
+                        if (!read_file_until_n_line(task_md_path, 5, &sb, &temp_sb)) return_defer(false);
+                        while (sb.items[sb.count++] != '\n');
+                        sb.count -= 1;
+                        sb_appendf(&sb, ",%s\n", tag);
+
+                        sb_append_buf(&sb, temp_sb.items, temp_sb.count);
+                        if (!write_entire_file(task_md_path, sb.items, sb.count)) return_defer(false);
                     }
                 }
 
@@ -1132,7 +1142,8 @@ bool overwrite_task(tasks_t *tasks, task_info_t *info)
                     a.count -= i;
                     a.data  += i;
                 }
-                break;
+                sb.count = 0;
+                temp_sb.count = 0;
             }
         }
 

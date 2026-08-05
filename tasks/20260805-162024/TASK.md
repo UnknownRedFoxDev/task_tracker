@@ -2,5 +2,5 @@
 
 - STATUS: OPEN
 - PRIORITY: 200
-- TAGS: test,cmdline-options
+- TAGS: test,cmdline-options,bug
 
