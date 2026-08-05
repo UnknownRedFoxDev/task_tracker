@@ -56,10 +56,10 @@ int main(int argc, char **argv)
         remove_tasks(&tasks, &opts.filters);
     }
     else if (opts.close_tasks) {
-        change_tasks_status(&tasks, &opts.filters, CLOSED);
+        change_tasks_status(&tasks, &opts.filters, STATUS_CLOSED);
     }
     else if (opts.reopen_tasks) {
-        change_tasks_status(&tasks, &opts.filters, OPEN);
+        change_tasks_status(&tasks, &opts.filters, STATUS_OPEN);
     }
     else if (opts.overwrite_task) {
         overwrite_task(&tasks, opts.overwrite_task);

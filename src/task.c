@@ -84,42 +84,13 @@ bool read_file_until_n_line(const char *path, s32 n, String_Builder *file_buffer
     return true;
 }
 
-// TASK(20260805-161529): Change close and reopen cmdline options to use overwrite function rather than having its own thing
-bool change_task_status(task_t *task, task_status new_status)
-{
-    const char *task_md_path = temp_sprintf("%s/%s/TASK.md", task->path, task->uuid);
-    String_Builder sb = {0};
-    String_Builder temp_sb = {0};
-    bool result = true;
-
-    // 1 | # <title>\n
-    // 2 | \n
-    // 3 | - STATUS: <STATUS>\n
-    // 4 | - PRIORITY: <PRIORITY>\n
-    // 5 | - TAGS: <TAGS>\n
-    // 6 | \n
-    if (!read_file_until_n_line(task_md_path, 3, &sb, &temp_sb)) return_defer(false);
-
-    sb_appendf(&sb, " %s\n", task_status_to_cstr(new_status));
-    sb_append_buf(&sb, temp_sb.items, temp_sb.count);
-
-    if (!write_entire_file(task_md_path, sb.items, sb.count)) return_defer(false);
-
-    nob_log(INFO, "%s task(%s): %s", (new_status == CLOSED)? "Closed" : "Reopened", task->uuid, task->name);
-
-defer:
-    free(sb.items);
-    free(temp_sb.items);
-
-    return result;
-}
-
 bool change_tasks_status(tasks_t *tasks, Flag_List_Mut *tasks_uuid, task_status new_status)
 {
     da_foreach (task_t, task, tasks) {
         for (u64 i = 0; i < tasks_uuid->count; ++i) {
             if (strcmp(task->uuid, tasks_uuid->items[i]) == 0) {
-                if (!change_task_status(task, new_status)) return false;
+                task_info_t info = {.task_id = task->uuid, .status = new_status};
+                if (!overwrite_task(tasks, &info)) return false;
                 da_remove_unordered(tasks_uuid, i);
                 break;
             }
@@ -273,9 +244,9 @@ const char *boolean_keyword_to_string(boolean_keywords key)
 {
     switch (key) {
         case NONE: return "none";
-        case NOT: return "not";
-        case OR: return "or";
-        case AND: return "and";
+        case NOT:  return "not";
+        case OR:   return "or";
+        case AND:  return "and";
         default:
             UNREACHABLE("boolean_keyword");
     }
@@ -756,7 +727,7 @@ task_t *create_task(const char *path, task_info_t *info)
     result->path = strdup(path);
     result->uuid = strdup(dir_name);
     result->priority = 1;
-    result->status = OPEN;
+    result->status = STATUS_OPEN;
     result->tags.hasheq = ht_cstr_hasheq;
 
     nob_log(INFO, "Created task at: %s%s/TASK.md%s", COLOR_RED, task_path, COLOR_RESET);
@@ -984,7 +955,7 @@ typedef enum {
     __overwrite_mode_count
 } overwrite_mode;
 
-// TASK(20260805-161529): Change close and reopen cmdline options to use overwrite function rather than having its own thing
+// task(20260805-022652): Implement overwrite cmdline
 bool overwrite_task(tasks_t *tasks, task_info_t *info)
 {
     if (info->task_id == NULL) {
@@ -1035,17 +1006,28 @@ bool overwrite_task(tasks_t *tasks, task_info_t *info)
                         UNREACHABLE("priority: overwrite_mode");
                 }
                 if (!read_file_until_n_line(task_md_path, 4, &sb, &temp_sb)) return_defer(false);
-                task->priority = new_priority;
-                sb_appendf(&sb, " %zu\n", task->priority);
+
+                sb_appendf(&sb, "%d\n", new_priority);
                 sb_append_buf(&sb, temp_sb.items, temp_sb.count);
+
                 if (!write_entire_file(task_md_path, sb.items, sb.count)) return_defer(false);
+
                 nob_log(INFO, "Changed task(%s) priority from %d to %d", task->uuid, old_priority, new_priority);
+                sb.count = 0;
+                temp_sb.count = 0;
             }
         }
+
+        // 1 | # <title>\n
+        // 2 | \n
+        // 3 | - STATUS: <STATUS>\n
+        // 4 | - PRIORITY: <PRIORITY>\n
+        // 5 | - TAGS: <TAGS>\n
+        // 6 | \n
         // -=-=-=-=-=-=-=-=-=-=-= TAGS =-=-=-=-=-=-=-=-=-=-=-
         if (info->tags != NULL) {
             String_View a = sv_from_cstr(info->tags);
-            nob_log(INFO, "tags: "SV_Fmt, SV_Arg(a));
+            // nob_log(INFO, "tags: "SV_Fmt, SV_Arg(a));
 
             while (a.count) {
                 size_t i = 0;
@@ -1064,8 +1046,8 @@ bool overwrite_task(tasks_t *tasks, task_info_t *info)
 
                 const char *tag = nob_temp_sv_to_cstr(tag_sv);
                 bool tag_already_present = ht_find(&task->tags, tag);
-                nob_log(INFO, "tag mode: %s", (tag_mode == OVERWRITE_SET)? "set" : (tag_mode == OVERWRITE_ADD)? "add" : "sub");
-                nob_log(INFO, "current tag: %s", tag);
+                // nob_log(INFO, "tag mode: %s", (tag_mode == OVERWRITE_SET)? "set" : (tag_mode == OVERWRITE_ADD)? "add" : "sub");
+                // nob_log(INFO, "current tag: %s", tag);
 
                 if (tag_mode == OVERWRITE_SET) {
                     nob_log(INFO, "Set task(%s) tag(s) to "SV_Fmt, task->uuid, SV_Arg(a));
@@ -1093,10 +1075,10 @@ bool overwrite_task(tasks_t *tasks, task_info_t *info)
                             sb_append_null(&read_tag);
                             character_count -= ite + 1; // +1 to account for the comma
 
-                            nob_log(INFO, "read tag: %s", read_tag.items);
+                            // nob_log(INFO, "read tag: %s", read_tag.items);
                             if (strcmp(read_tag.items, tag) == 0) {
                                 read_tag_found = true;
-                                nob_log(INFO, "Found target tag");
+                                nob_log(INFO, "Tag: \"%s\" was removed from task(%s)", tag, task->uuid);
                                 // TAGS: test,bug,cmdline-options\n < file
                                 // TAGS: test,cmdline-options\n     < sb
                                 if (sb.items[sb.count + ite + 1] == '\n') {
@@ -1129,7 +1111,7 @@ bool overwrite_task(tasks_t *tasks, task_info_t *info)
                         while (sb.items[sb.count++] != '\n');
                         sb.count -= 1;
                         sb_appendf(&sb, ",%s\n", tag);
-
+                        nob_log(INFO, "Tag: \"%s\" was added to task(%s)", tag, task->uuid);
                         sb_append_buf(&sb, temp_sb.items, temp_sb.count);
                         if (!write_entire_file(task_md_path, sb.items, sb.count)) return_defer(false);
                     }
@@ -1147,6 +1129,25 @@ bool overwrite_task(tasks_t *tasks, task_info_t *info)
             }
         }
 
+        // 1 | # <title>\n
+        // 2 | \n
+        // 3 | - STATUS: <STATUS>\n
+        // 4 | - PRIORITY: <PRIORITY>\n
+        // 5 | - TAGS: <TAGS>\n
+        // 6 | \n
+        // TASK(20260805-161529): Change close and reopen cmdline options to use overwrite function rather than having its own thing
+        if (info->status != task->status && info->status != STATUS_NONE) {
+            if (!read_file_until_n_line(task_md_path, 3, &sb, &temp_sb)) return_defer(false);
+
+            sb_appendf(&sb, "%s\n", task_status_to_cstr(info->status));
+            sb_append_buf(&sb, temp_sb.items, temp_sb.count);
+
+            if (!write_entire_file(task_md_path, sb.items, sb.count)) return_defer(false);
+
+            nob_log(INFO, "%s task(%s): %s", (info->status == STATUS_CLOSED)? "Closed" : "Reopened", task->uuid, task->name);
+            sb.count = 0;
+            temp_sb.count = 0;
+        }
 
 defer:
         free(sb.items);

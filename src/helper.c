@@ -1,5 +1,4 @@
 #include <stdlib.h>
-#include "../lib/task.h"
 #include "../lib/helper.h"
 
 void usage(FILE *stream)
@@ -10,8 +9,8 @@ void usage(FILE *stream)
     fprintf(stream, "      Lists this help message\n");
     fprintf(stream, "\n");
     fprintf(stream, "    ls\n");
-    fprintf(stream, "      Lists all tasks. Filters as strings can be passed to filter tasks by name, status and tags.\n");
-    fprintf(stream, "      Filtering by tag and by name are mutually exclusive.\n");
+    fprintf(stream, "      Lists all tasks. Filters as strings can be passed to filter tasks by name, status and tags\n");
+    fprintf(stream, "      Filtering by tag and by name are mutually exclusive\n");
     fprintf(stream, "\n");
     fprintf(stream, "    ls-rev\n");
     fprintf(stream, "      Works similarly to `ls` but prints the tasks in the reverse order of priority\n");
@@ -22,30 +21,29 @@ void usage(FILE *stream)
     fprintf(stream, "    new [OPTIONS] <title>\n");
     fprintf(stream, "      Creates a task\n");
     fprintf(stream, "      OPTIONS:\n");
-    fprintf(stream, "          -t <tags> : Add tags to the new task. Tags are comma seperated without space.\n");
-    fprintf(stream, "          -p <priority> : Change priority from default 100 priority.\n");
+    fprintf(stream, "          -t <tags> : Add tags to the new task. Tags are comma seperated without space\n");
+    fprintf(stream, "          -p <priority> : Change priority from default 100 priority\n");
     fprintf(stream, "\n");
     fprintf(stream, "    cat <task-id>\n");
     fprintf(stream, "      Prints the details of the task to the output\n");
     fprintf(stream, "\n");
     fprintf(stream, "    edit <task-id>\n");
-    fprintf(stream, "      Opens the task specified in your $EDITOR of choice. Default to vim if $EDITOR is not set.\n");
+    fprintf(stream, "      Opens the task specified in your $EDITOR of choice. Default to vim if $EDITOR is not set\n");
     fprintf(stream, "\n");
     fprintf(stream, "    find <task-id>\n");
-    fprintf(stream, "      Finds the task specified and prints it to the output.\n");
+    fprintf(stream, "      Finds the task specified and prints it to the output\n");
     fprintf(stream, "\n");
     fprintf(stream, "    rm | del <task-id> [...]\n");
-    fprintf(stream, "      Deletes the task(s) specified.\n");
+    fprintf(stream, "      Deletes the task(s) specified\n");
     fprintf(stream, "\n");
     fprintf(stream, "    close <task-id> [...]\n");
-    fprintf(stream, "      Closes the task(s) specified.\n");
+    fprintf(stream, "      Closes the task(s) specified\n");
     fprintf(stream, "\n");
     fprintf(stream, "    reopen <task-id> [...]\n");
-    fprintf(stream, "      Reopens the task(s) specified.\n");
+    fprintf(stream, "      Reopens the task(s) specified\n");
     fprintf(stream, "\n");
-    // TASK(20260805-022652): Implement overwrite cmdline
-    fprintf(stream, "    overwrite <task-id> [-t [+|-]<tags> ...] [-p [+|-]<priority>] [title]\n");
-    fprintf(stream, "      overwrite a task's tags, priority and title, if any supplied. Empty fields after `task-id` will do nothing.\n");
+    fprintf(stream, "    tatr overwrite <task-id> [-t [+|-]<tags> ...] [-p [+|-]<priority>] [-s <O[PEN] | C[LOSED]>] [title]\n");
+    fprintf(stream, "      Given a task-id, you can modify its tags, priority, status and title\n");
 }
 
 void parse_options(int argc, char **argv, cmdline_opts_t *opts)
@@ -126,10 +124,6 @@ void parse_options(int argc, char **argv, cmdline_opts_t *opts)
             opts->overwrite_task = calloc(1, sizeof(task_info_t));
             assert(opts->overwrite_task != NULL && "Failed to allocated space for overwrite's task info structure");
 
-            opts->overwrite_task->priority = NULL;
-            opts->overwrite_task->tags = NULL;
-            opts->overwrite_task->title = NULL;
-            opts->overwrite_task->task_id = NULL;
             if (argc > 0) {
                 opts->overwrite_task->task_id = shift(argv, argc);
             } else {
@@ -144,6 +138,8 @@ void parse_options(int argc, char **argv, cmdline_opts_t *opts)
                         opts->overwrite_task->tags = shift(argv, argc);
                     } else if (strcmp(flag, "-p") == 0) {
                         opts->overwrite_task->priority = shift(argv, argc);
+                    } else if (strcmp(flag, "-s") == 0) {
+                        opts->overwrite_task->status = cstr_to_task_status(shift(argv, argc));
                     } else {
                         opts->overwrite_task->title = flag;
                     }
@@ -199,18 +195,21 @@ char *sv_to_cstr(String_View sv)
 
 task_status cstr_to_task_status(const char *cstr)
 {
-    if (strcmp(cstr, "CLOSED") == 0)  return CLOSED;
-    else if (strcmp(cstr, "OPEN") == 0) return OPEN;
+    if (strcmp(cstr, "CLOSED") == 0 || strcmp(cstr, "C") == 0)  return STATUS_CLOSED;
+    else if (strcmp(cstr, "OPEN") == 0 || strcmp(cstr, "O") == 0) return STATUS_OPEN;
+    else if (strcmp(cstr, "NONE") == 0 || strcmp(cstr, "N") == 0) return STATUS_NONE;
     UNREACHABLE("task_status");
 }
 
 const char *task_status_to_cstr(task_status status)
 {
     switch (status) {
-        case CLOSED:
+        case STATUS_CLOSED:
             return "CLOSED";
-        case OPEN:
+        case STATUS_OPEN:
             return "OPEN";
+        case STATUS_NONE:
+            return "NONE";
     }
     UNREACHABLE("task_status");
 }

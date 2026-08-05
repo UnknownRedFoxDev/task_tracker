@@ -46,8 +46,9 @@ typedef uint32_t u32;
 typedef uint64_t u64;
 
 typedef enum {
-    CLOSED,
-    OPEN,
+    STATUS_NONE,
+    STATUS_CLOSED,
+    STATUS_OPEN,
 } task_status;
 
 typedef struct {
