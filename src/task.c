@@ -25,6 +25,7 @@ void cat_task(task_t *task)
 {
     String_Builder sb = {0};
     if (!read_entire_file(temp_sprintf("%s/%s/TASK.md", task->path, task->uuid), &sb)) return ;
+    sb_append_null(&sb);
 
     printf("%s", sb.items);
     free(sb.items);
@@ -63,18 +64,22 @@ bool read_file_until_n_line(const char *path, s32 n, String_Builder *file_buffer
     if (!read_entire_file(path, file_buffer_reader)) return false;
     u32 cursor = 0;
 
-    for (s32 i = 0; i < n; ++i) {
-        while (file_buffer_reader->items[cursor++] != '\n'); // # <title>\n
-    }
+    if (file_buffer_reader->items != NULL) {
+        for (s32 i = 0; i < n; ++i) {
+            while (file_buffer_reader->items[cursor++] != '\n'); // # <title>\n
+        }
 
-    for (u32 i = cursor; i < file_buffer_reader->count; ++i) {
-        sb_append(buffer_for_whatever_is_after, file_buffer_reader->items[i]);
-    }
+        for (u32 i = cursor; i < file_buffer_reader->count; ++i) {
+            sb_append(buffer_for_whatever_is_after, file_buffer_reader->items[i]);
+        }
 
-    file_buffer_reader->count -= file_buffer_reader->count - cursor; // remove the content after the cursor
-    if (n > 2 && n < 6) {
-        while (file_buffer_reader->items[file_buffer_reader->count--] != ' ');
-        file_buffer_reader->count++; // STATUS -> STATUS:
+        file_buffer_reader->count -= file_buffer_reader->count - cursor; // remove the content after the cursor
+        if (n > 2 && n < 6) {
+            while (file_buffer_reader->items[file_buffer_reader->count--] != ' ');
+            file_buffer_reader->count++; // STATUS -> STATUS:
+        }
+    } else {
+        return false;
     }
     return true;
 }
@@ -987,11 +992,12 @@ bool overwrite_task(tasks_t *tasks, task_info_t *info)
         return false;
     }
 
+    // task(20260805-162024): This task is used as a test subject for the overwrite command
     da_foreach (task_t, task, tasks) {
         if (strcmp(task->uuid, info->task_id) != 0) continue;
 
         overwrite_mode priority_mode = OVERWRITE_SET;
-        overwrite_mode tags_mode     = OVERWRITE_SET;
+        overwrite_mode tag_mode      = OVERWRITE_SET;
         const char *task_md_path = temp_sprintf("%s/%s/TASK.md", task->path, task->uuid);
         String_Builder sb = {0};
         String_Builder temp_sb = {0};
@@ -1030,29 +1036,79 @@ bool overwrite_task(tasks_t *tasks, task_info_t *info)
                 }
                 if (!read_file_until_n_line(task_md_path, 4, &sb, &temp_sb)) return_defer(false);
                 task->priority = new_priority;
-                sb_appendf(&sb, " %s\n", task_status_to_cstr(new_priority));
+                sb_appendf(&sb, " %zu\n", task->priority);
                 sb_append_buf(&sb, temp_sb.items, temp_sb.count);
                 if (!write_entire_file(task_md_path, sb.items, sb.count)) return_defer(false);
                 nob_log(INFO, "Changed task(%s) priority from %d to %d", task->uuid, old_priority, new_priority);
             }
         }
-
         // -=-=-=-=-=-=-=-=-=-=-= TAGS =-=-=-=-=-=-=-=-=-=-=-
         if (info->tags != NULL) {
-            String_View b = sv_from_cstr(info->tags);
-            nob_log(INFO, "tags: "SV_Fmt, SV_Arg(b));
-            // if (sv_starts_with(a, sv_from_cstr("+"))) {
-            //     priority_mode = OVERWRITE_ADD;
-            // } else if (sv_starts_with(a, sv_from_cstr("-"))) {
-            //     priority_mode = OVERWRITE_SUB;
-            // }
+            String_View a = sv_from_cstr(info->tags);
+            nob_log(INFO, "tags: "SV_Fmt, SV_Arg(a));
+
+            while (a.count) {
+                size_t i = 0;
+                while (i < a.count && a.items[i] != ',') {
+                    i += 1;
+                }
+                String_View tag_sv = sv_from_parts(a.items, i);
+
+                if (sv_starts_with(tag_sv, sv_from_cstr("+"))) {
+                    tag_mode = OVERWRITE_ADD;
+                    sv_chop_left(&tag_sv, 1);
+                } else if (sv_starts_with(tag_sv, sv_from_cstr("-"))) {
+                    tag_mode = OVERWRITE_SUB;
+                    sv_chop_left(&tag_sv, 1);
+                }
+
+                const char *tag = nob_temp_sv_to_cstr(tag_sv);
+                bool tag_already_present = ht_find(&task->tags, tag);
+                nob_log(INFO, "tag mode: %s", (tag_mode == OVERWRITE_SET)? "set" : (tag_mode == OVERWRITE_ADD)? "add" : "sub");
+                nob_log(INFO, "current tag: %s", tag);
+
+                if (tag_mode == OVERWRITE_SET) {
+                    nob_log(INFO, "Set task(%s) tag(s) to "SV_Fmt, task->uuid, SV_Arg(a));
+                    return_defer(true);
+                }
+
+                if (!read_file_until_n_line(task_md_path, 5, &sb, &temp_sb)) return_defer(false);
+                nob_log(INFO, "%*s", (int)sb.count-1, sb.items);
+                // if (tag_already_present) {
+                //     if (tag_mode == OVERWRITE_SUB) {
+                //         String_Builder read_tag = {0};
+                //         size_t i = sb.count;
+                //         while (sb.items[sb.count++] != '\n') {
+                //             while (sb.items[i] != ',') {
+                //                 sb_appendf(&read_tag, "%c", sb.items[i++]);
+                //             }
+                //             sb_append_null(&read_tag);
+                //             nob_log(INFO, "read tag: %s", read_tag.items);
+                //             read_tag.count = 0;
+                //             sb.count += i;
+                //         }
+                //     }
+                // } else {
+                // }
+                sb_append_buf(&sb, temp_sb.items, temp_sb.count);
+                if (!write_entire_file(task_md_path, sb.items, sb.count)) return_defer(false);
+
+                if (i < a.count) {
+                    a.count -= i + 1;
+                    a.data  += i + 1;
+                } else {
+                    a.count -= i;
+                    a.data  += i;
+                }
+                break;
+            }
         }
 
 
 defer:
         free(sb.items);
         free(temp_sb.items);
-        return true;
+        return result;
     }
     return false;
 }
