@@ -1,6 +1,6 @@
 # Finish implementing overwrite for setting tags
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 75
 - TAGS: feature,bug
 

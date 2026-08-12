@@ -1,6 +1,6 @@
 # Testing new subtask feature
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 100
 - TAGS: testing
 

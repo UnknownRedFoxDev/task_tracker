@@ -1050,9 +1050,22 @@ bool overwrite_task(tasks_t *tasks, task_info_t *info)
                 // nob_log(INFO, "current tag: %s", tag);
 
                 if (tag_mode == OVERWRITE_SET) {
-                    TODO("TASK(20260812-202009): Finish implementing overwrite for setting tags");
-                    // nob_log(INFO, "Tag: changed from %s to %s for task(%s)", NULL, NULL, task->uuid);
-                    // return_defer(true);
+                    String_Builder previous_tags = {0};
+                    if (!read_file_until_n_line(task_md_path, 5, &sb, &temp_sb)) return_defer(false);
+
+                    size_t ite = sb.count;
+                    while (sb.items[ite] != '\n' && sb.items[ite] != '\0') {
+                        sb_appendf(&previous_tags, "%c", sb.items[ite]);
+                        ite += 1;
+                    }
+                    sb_append_null(&previous_tags);
+
+                    sb_appendf(&sb, "%s\n", info->tags);
+                    sb_append_buf(&sb, temp_sb.items, temp_sb.count);
+                    if (!write_entire_file(task_md_path, sb.items, sb.count)) return_defer(false);
+                    nob_log(INFO, "Tag: changed from \"%*s\" to \"%s\" for task(%s)", (int)previous_tags.count-1, previous_tags.items, info->tags, task->uuid);
+                    // nob_log(INFO, "Tag: set to \"%s\" for task(%s)", info->tags, task->uuid);
+                    return_defer(true);
                 }
 
                 if (tag_already_present) {
