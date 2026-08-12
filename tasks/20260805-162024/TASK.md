@@ -2,5 +2,5 @@
 
 - STATUS: CLOSED
 - PRIORITY: 200
-- TAGS: test,cmdline-options,feature
+- TAGS: cmdline-options,feature,testing
 

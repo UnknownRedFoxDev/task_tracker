@@ -1012,7 +1012,7 @@ bool overwrite_task(tasks_t *tasks, task_info_t *info)
 
                 if (!write_entire_file(task_md_path, sb.items, sb.count)) return_defer(false);
 
-                nob_log(INFO, "Changed task(%s) priority from %d to %d", task->uuid, old_priority, new_priority);
+                nob_log(INFO, "Priority: changed from %d to %d for task(%s)", old_priority, new_priority, task->uuid);
                 sb.count = 0;
                 temp_sb.count = 0;
             }
@@ -1050,8 +1050,9 @@ bool overwrite_task(tasks_t *tasks, task_info_t *info)
                 // nob_log(INFO, "current tag: %s", tag);
 
                 if (tag_mode == OVERWRITE_SET) {
-                    nob_log(INFO, "Set task(%s) tag(s) to "SV_Fmt, task->uuid, SV_Arg(a));
-                    return_defer(true);
+                    TODO("TASK(20260812-202009): Finish implementing overwrite for setting tags");
+                    // nob_log(INFO, "Tag: changed from %s to %s for task(%s)", NULL, NULL, task->uuid);
+                    // return_defer(true);
                 }
 
                 if (tag_already_present) {

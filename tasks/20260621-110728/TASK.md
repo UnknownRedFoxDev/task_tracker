@@ -2,7 +2,7 @@
 
 - STATUS: CLOSED
 - PRIORITY: 90
-- TAGS: filters,tags-system,internal-rework
+- TAGS: filters,internal-rework
 
 User should be able to call this program as such:
 

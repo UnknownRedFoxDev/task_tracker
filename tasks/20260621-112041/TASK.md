@@ -2,7 +2,7 @@
 
 - STATUS: CLOSED
 - PRIORITY: 100
-- TAGS: tags-system,internal-rework
+- TAGS: internal-rework,filters
 
 As of right now, a task is composed as such:
 
