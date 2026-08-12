@@ -967,12 +967,23 @@ bool overwrite_task(tasks_t *tasks, task_info_t *info)
     da_foreach (task_t, task, tasks) {
         if (strcmp(task->uuid, info->task_id) != 0) continue;
 
-        overwrite_mode priority_mode = OVERWRITE_SET;
-        overwrite_mode tag_mode      = OVERWRITE_SET;
         const char *task_md_path = temp_sprintf("%s/%s/TASK.md", task->path, task->uuid);
         String_Builder sb = {0};
         String_Builder temp_sb = {0};
         bool result = true;
+
+        // 1 | # <title>\n
+        // 2 | \n
+        // 3 | - STATUS: <STATUS>\n
+        // 4 | - PRIORITY: <PRIORITY>\n
+        // 5 | - TAGS: <TAGS>\n
+        // 6 | \n
+        // TASK(20260813-001316): Overwriting title does not work
+        if (info->title != NULL) {
+            TODO("Implement overwriting a task's title");
+        }
+        overwrite_mode priority_mode = OVERWRITE_SET;
+        overwrite_mode tag_mode      = OVERWRITE_SET;
 
         // 1 | # <title>\n
         // 2 | \n
