@@ -77,6 +77,9 @@ bool read_file_until_n_line(const char *path, s32 n, String_Builder *file_buffer
         if (n > 2 && n < 6) {
             while (file_buffer_reader->items[file_buffer_reader->count--] != ' ');
             file_buffer_reader->count += 2; // STATUS -> STATUS:
+        } else if (n == 1) {
+            while (file_buffer_reader->items[file_buffer_reader->count--] != '#');
+            file_buffer_reader->count += 1; // # -> #_
         }
     } else {
         return false;
@@ -955,6 +958,33 @@ typedef enum {
     __overwrite_mode_count
 } overwrite_mode;
 
+// 1 | # <title>\n
+// 2 | \n
+// 3 | - STATUS: <STATUS>\n
+// 4 | - PRIORITY: <PRIORITY>\n
+// 5 | - TAGS: <TAGS>\n
+// 6 | \n
+#define TITLE_LINE 1
+#define STATUS_LINE 3
+#define PRIORITY_LINE 4
+#define TAGS_LINE 5
+
+s32 set_attribut_line(const char *path, const char *new_attribut, String_Builder *previous_attribut, s32 line_number, String_Builder *sb, String_Builder *temp_sb) {
+    if (!read_file_until_n_line(path, line_number, sb, temp_sb)) return false;
+
+    size_t ite = sb->count;
+    while (sb->items[ite] != '\n' && sb->items[ite] != '\0') {
+        sb_appendf(previous_attribut, "%c", sb->items[ite]);
+        ite += 1;
+    }
+    sb_append_null(previous_attribut);
+
+    sb_appendf(sb, "%s\n", new_attribut);
+    sb_append_buf(sb, temp_sb->items, temp_sb->count);
+    if (!write_entire_file(path, sb->items, sb->count)) return false;
+    return true;
+}
+
 // task(20260805-022652): Implement overwrite cmdline
 bool overwrite_task(tasks_t *tasks, task_info_t *info)
 {
@@ -972,25 +1002,18 @@ bool overwrite_task(tasks_t *tasks, task_info_t *info)
         String_Builder temp_sb = {0};
         bool result = true;
 
-        // 1 | # <title>\n
-        // 2 | \n
-        // 3 | - STATUS: <STATUS>\n
-        // 4 | - PRIORITY: <PRIORITY>\n
-        // 5 | - TAGS: <TAGS>\n
-        // 6 | \n
+        // -=-=-=-=-=-=-=-=-=-=-= TITLE =-=-=-=-=-=-=-=-=-=-=-
         // TASK(20260813-001316): Overwriting title does not work
         if (info->title != NULL) {
-            TODO("Implement overwriting a task's title");
+            String_Builder previous_title = {0};
+            if (!set_attribut_line(task_md_path, temp_sprintf("# %s", info->title), &previous_title, TITLE_LINE, &sb, &temp_sb)) return_defer(false);
+            nob_log(INFO, "Title: changed from \"%*s\" to \"# %s\" for task(%s)", (int)previous_title.count-1, previous_title.items, info->title, task->uuid);
+            free(previous_title.items);
+            return_defer(true);
         }
         overwrite_mode priority_mode = OVERWRITE_SET;
         overwrite_mode tag_mode      = OVERWRITE_SET;
 
-        // 1 | # <title>\n
-        // 2 | \n
-        // 3 | - STATUS: <STATUS>\n
-        // 4 | - PRIORITY: <PRIORITY>\n
-        // 5 | - TAGS: <TAGS>\n
-        // 6 | \n
         // -=-=-=-=-=-=-=-=-=-=-= PRIORITY =-=-=-=-=-=-=-=-=-=-=-
         if (info->priority != NULL) {
             String_View a = sv_from_cstr(info->priority);
@@ -1016,7 +1039,7 @@ bool overwrite_task(tasks_t *tasks, task_info_t *info)
                     default:
                         UNREACHABLE("priority: overwrite_mode");
                 }
-                if (!read_file_until_n_line(task_md_path, 4, &sb, &temp_sb)) return_defer(false);
+                if (!read_file_until_n_line(task_md_path, PRIORITY_LINE, &sb, &temp_sb)) return_defer(false);
 
                 sb_appendf(&sb, "%d\n", new_priority);
                 sb_append_buf(&sb, temp_sb.items, temp_sb.count);
@@ -1029,12 +1052,6 @@ bool overwrite_task(tasks_t *tasks, task_info_t *info)
             }
         }
 
-        // 1 | # <title>\n
-        // 2 | \n
-        // 3 | - STATUS: <STATUS>\n
-        // 4 | - PRIORITY: <PRIORITY>\n
-        // 5 | - TAGS: <TAGS>\n
-        // 6 | \n
         // -=-=-=-=-=-=-=-=-=-=-= TAGS =-=-=-=-=-=-=-=-=-=-=-
         if (info->tags != NULL) {
             String_View a = sv_from_cstr(info->tags);
@@ -1060,28 +1077,9 @@ bool overwrite_task(tasks_t *tasks, task_info_t *info)
                 // nob_log(INFO, "tag mode: %s", (tag_mode == OVERWRITE_SET)? "set" : (tag_mode == OVERWRITE_ADD)? "add" : "sub");
                 // nob_log(INFO, "current tag: %s", tag);
 
-                if (tag_mode == OVERWRITE_SET) {
-                    String_Builder previous_tags = {0};
-                    if (!read_file_until_n_line(task_md_path, 5, &sb, &temp_sb)) return_defer(false);
-
-                    size_t ite = sb.count;
-                    while (sb.items[ite] != '\n' && sb.items[ite] != '\0') {
-                        sb_appendf(&previous_tags, "%c", sb.items[ite]);
-                        ite += 1;
-                    }
-                    sb_append_null(&previous_tags);
-
-                    sb_appendf(&sb, "%s\n", info->tags);
-                    sb_append_buf(&sb, temp_sb.items, temp_sb.count);
-                    if (!write_entire_file(task_md_path, sb.items, sb.count)) return_defer(false);
-                    nob_log(INFO, "Tag: changed from \"%*s\" to \"%s\" for task(%s)", (int)previous_tags.count-1, previous_tags.items, info->tags, task->uuid);
-                    // nob_log(INFO, "Tag: set to \"%s\" for task(%s)", info->tags, task->uuid);
-                    return_defer(true);
-                }
-
                 if (tag_already_present) {
                     if (tag_mode == OVERWRITE_SUB) {
-                        if (!read_file_until_n_line(task_md_path, 5, &sb, &temp_sb)) return_defer(false);
+                        if (!read_file_until_n_line(task_md_path, TAGS_LINE, &sb, &temp_sb)) return_defer(false);
                         bool read_tag_found = false;
                         size_t total_count = 0;
                         String_Builder read_tag = {0};
@@ -1132,13 +1130,24 @@ bool overwrite_task(tasks_t *tasks, task_info_t *info)
                     if (tag_mode == OVERWRITE_SUB) {
                         nob_log(WARNING, "Tag: \"%s\" for task(%s) was not found. Deletion cancelled", tag, task->uuid);
                     } else if (tag_mode == OVERWRITE_ADD) {
-                        if (!read_file_until_n_line(task_md_path, 5, &sb, &temp_sb)) return_defer(false);
+                        if (!read_file_until_n_line(task_md_path, TAGS_LINE, &sb, &temp_sb)) return_defer(false);
                         while (sb.items[sb.count++] != '\n');
+
                         sb.count -= 1;
+
                         sb_appendf(&sb, ",%s\n", tag);
                         nob_log(INFO, "Tag: \"%s\" was added to task(%s)", tag, task->uuid);
+
                         sb_append_buf(&sb, temp_sb.items, temp_sb.count);
                         if (!write_entire_file(task_md_path, sb.items, sb.count)) return_defer(false);
+                    } else if (tag_mode == OVERWRITE_SET) {
+                        String_Builder previous_tags = {0};
+
+                        if (!set_attribut_line(task_md_path, info->tags, &previous_tags, TAGS_LINE, &sb, &temp_sb)) return_defer(false);
+                        nob_log(INFO, "Tag: changed from \"%*s\" to \"%s\" for task(%s)", (int)previous_tags.count-1, previous_tags.items, info->tags, task->uuid);
+
+                        a.count = 0;
+                        free(previous_tags.items);
                     }
                 }
 
@@ -1149,20 +1158,14 @@ bool overwrite_task(tasks_t *tasks, task_info_t *info)
                     a.count -= i;
                     a.data  += i;
                 }
+
                 sb.count = 0;
                 temp_sb.count = 0;
             }
         }
 
-        // 1 | # <title>\n
-        // 2 | \n
-        // 3 | - STATUS: <STATUS>\n
-        // 4 | - PRIORITY: <PRIORITY>\n
-        // 5 | - TAGS: <TAGS>\n
-        // 6 | \n
-        // TASK(20260805-161529): Change close and reopen cmdline options to use overwrite function rather than having its own thing
         if (info->status != task->status && info->status != STATUS_NONE) {
-            if (!read_file_until_n_line(task_md_path, 3, &sb, &temp_sb)) return_defer(false);
+            if (!read_file_until_n_line(task_md_path, STATUS_LINE, &sb, &temp_sb)) return_defer(false);
 
             sb_appendf(&sb, "%s\n", task_status_to_cstr(info->status));
             sb_append_buf(&sb, temp_sb.items, temp_sb.count);

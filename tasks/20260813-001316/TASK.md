@@ -1,6 +1,6 @@
 # Overwriting title does not work
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 80
 - TAGS: feature,bug
 
