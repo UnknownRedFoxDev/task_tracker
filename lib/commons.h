@@ -65,6 +65,7 @@ typedef struct cmdline_opts_s {
     bool  list_tasks_reversed;
     bool  remove_tasks;
     bool  init_dir;
+    bool  force_init_dir;
     bool  close_tasks;
     bool  reopen_tasks;
     bool  summary;

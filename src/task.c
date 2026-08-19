@@ -911,7 +911,7 @@ void free_tasks(tasks_t *tasks)
     ht_free(&__g_stats);
 }
 
-void init_directory(const char *tasks_dir)
+void init_directory(const char *tasks_dir, bool force_init)
 {
     bool create_dir = true;
     const char *cwd = get_current_dir_temp();
@@ -926,26 +926,28 @@ void init_directory(const char *tasks_dir)
             return ;
         }
 
-        char user_choice = 'n';
-        nob_log(WARNING, "A tasks/ directory has been found at: %s/", tasks_dir);
-        do {
-            printf("[INFO] Do you still wish to initialize here? (y/N) : ");
-            scanf("%c", &user_choice);
-            if (user_choice == '\n') user_choice = 'n';
-            user_choice = tolower(user_choice);
-        } while (user_choice != 'y' && user_choice != 'n');
+        if (!force_init) {
+            char user_choice = 'n';
+            nob_log(WARNING, "A tasks/ directory has been found at: %s/", tasks_dir);
+            do {
+                printf("[INFO] Do you still wish to initialize here? (y/N) : ");
+                scanf("%c", &user_choice);
+                if (user_choice == '\n') user_choice = 'n';
+                user_choice = tolower(user_choice);
+            } while (user_choice != 'y' && user_choice != 'n');
 
-        switch (user_choice) {
-            case 'n': {
-                nob_log(INFO, "Initialization procedure was cancelled");
-            } break;
-            case 'y': {
-                create_dir = true;
-            } break;
+            switch (user_choice) {
+                case 'n': {
+                    nob_log(INFO, "Initialization procedure was cancelled");
+                } break;
+                case 'y': {
+                    create_dir = true;
+                } break;
+            }
         }
     }
 
-    if (create_dir) {
+    if (create_dir || force_init) {
         mkdir_if_not_exists(temp_sprintf("%s/tasks", cwd));
     }
     free(parent_tasks_dir);

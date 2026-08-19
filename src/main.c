@@ -17,7 +17,7 @@ int main(int argc, char **argv)
     }
 
     if (opts.init_dir) {
-        init_directory(tasks_dir);
+        init_directory(tasks_dir, opts.force_init_dir);
         goto defer;
     }
 

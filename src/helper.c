@@ -44,6 +44,9 @@ void usage(FILE *stream)
     fprintf(stream, "\n");
     fprintf(stream, "    tatr overwrite <task-id> [-t [+|-]<tags> ...] [-p [+|-]<priority>] [-s <O[PEN] | C[LOSED]>] [title]\n");
     fprintf(stream, "      Given a task-id, you can modify its tags, priority, status and title\n");
+    fprintf(stream, "\n");
+    fprintf(stream, "    tatr init [y]\n");
+    fprintf(stream, "      Initialize the tasks/ directory used by tatr, 'y' may be given to force creation\n");
 }
 
 void parse_options(int argc, char **argv, cmdline_opts_t *opts)
@@ -119,6 +122,13 @@ void parse_options(int argc, char **argv, cmdline_opts_t *opts)
             break;
         } else if (strcmp(flag, "init") == 0) {
             opts->init_dir = true;
+            if (argc > 0) {
+                flag = shift(argv, argc);
+                if (strcmp(flag, "y") == 0 || strcmp(flag, "Y") == 0) {
+                    opts->force_init_dir = true;
+                }
+            }
+
             break;
         } else if (strcmp(flag, "overwrite") == 0) {
             opts->overwrite_task = calloc(1, sizeof(task_info_t));
