@@ -23,6 +23,7 @@ void usage(FILE *stream)
     fprintf(stream, "      OPTIONS:\n");
     fprintf(stream, "          -t <tags> : Add tags to the new task. Tags are comma seperated without space\n");
     fprintf(stream, "          -p <priority> : Change priority from default 100 priority\n");
+    fprintf(stream, "          --no-editor : doesn't automatically open the task in your $EDITOR of choice\n");
     fprintf(stream, "\n");
     fprintf(stream, "    cat <task-id>\n");
     fprintf(stream, "      Prints the details of the task to the output\n");
@@ -81,6 +82,8 @@ void parse_options(int argc, char **argv, cmdline_opts_t *opts)
                         opts->create_task->tags = shift(argv, argc);
                     } else if (strcmp(flag, "-p") == 0) {
                         opts->create_task->priority = shift(argv, argc);
+                    } else if (strcmp(flag, "--no-editor") == 0) {
+                        opts->no_editor = true;
                     } else {
                         opts->create_task->title = flag;
                     }

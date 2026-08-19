@@ -29,7 +29,7 @@ int main(int argc, char **argv)
     }
     else if (opts.create_task) {
         task_t *task = create_task(tasks_dir, opts.create_task);
-        if (task->path != NULL) {
+        if (task->path != NULL && !opts.no_editor) {
             open_task(task);
         }
         free_task(task);

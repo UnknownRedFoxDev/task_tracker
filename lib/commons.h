@@ -73,6 +73,7 @@ typedef struct cmdline_opts_s {
     char *edit_task;
     char *find_task;
     task_info_t *create_task;
+    bool no_editor;
     task_info_t *overwrite_task;
     Flag_List_Mut filters;
 } cmdline_opts_t;
