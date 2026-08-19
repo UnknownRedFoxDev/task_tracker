@@ -685,7 +685,7 @@ defer:
 }
 
 
-task_t *create_task(const char *path, task_info_t *info)
+task_t *create_task(const char *path, task_info_t *info, bool no_editor)
 {
     String_Builder sb = {0};
     task_t *result = calloc(1, sizeof(task_t));
@@ -733,20 +733,24 @@ task_t *create_task(const char *path, task_info_t *info)
     result->status = STATUS_OPEN;
     result->tags.hasheq = ht_cstr_hasheq;
 
-    nob_log(INFO, "Created task at: %s%s/TASK.md%s", COLOR_RED, task_path, COLOR_RESET);
-    Nob_Cmd cmd = {0};
-    cmd_append(&cmd, "wl-copy");
-    cmd_append(&cmd, "-n");
-    cmd_append(&cmd, temp_sprintf("TASK(%s): %s", dir_name, task_name));
-    minimal_log_level = WARNING;
-    if (!cmd_run(&cmd)) {
-        nob_log(WARNING, "Failed to copy HUID to clipboard. Is wl-copy installed?");
-    }
+    if (!no_editor) {
+        nob_log(INFO, "Created task at: %s%s/TASK.md%s", COLOR_RED, task_path, COLOR_RESET);
+        Nob_Cmd cmd = {0};
+        cmd_append(&cmd, "wl-copy");
+        cmd_append(&cmd, "-n");
+        cmd_append(&cmd, temp_sprintf("TASK(%s): %s", dir_name, task_name));
+        minimal_log_level = WARNING;
+        if (!cmd_run(&cmd)) {
+            nob_log(WARNING, "Failed to copy HUID to clipboard. Is wl-copy installed?");
+        }
 #ifdef DEBUG
-    minimal_log_level = DEBUG;
+        minimal_log_level = DEBUG;
 #else
-    minimal_log_level = INFO;
+        minimal_log_level = INFO;
 #endif // DEBUG
+    } else {
+        nob_log(INFO, "Created task at: %s/TASK.md", task_path);
+    }
 
 defer:
     free(sb.items);

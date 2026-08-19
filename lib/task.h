@@ -38,7 +38,7 @@ task_t *find_task(tasks_t *tasks, const char *uuid);
 bool remove_tasks(tasks_t *tasks, Flag_List_Mut *tasks_uuid);
 void init_directory(const char *tasks_dir, bool force_init);
 bool overwrite_task(tasks_t *tasks, task_info_t *info);
-task_t *create_task(const char *path, task_info_t *info);
+task_t *create_task(const char *path, task_info_t *info, bool no_editor);
 void initialise_tasks();
 bool change_task_status(task_t *task, task_status new_status);
 bool change_tasks_status(tasks_t *tasks, Flag_List_Mut *tasks_uuid, task_status new_status);

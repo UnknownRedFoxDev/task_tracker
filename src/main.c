@@ -28,7 +28,7 @@ int main(int argc, char **argv)
         print_tasks(&tasks, &opts.filters, opts.list_tasks_reversed);
     }
     else if (opts.create_task) {
-        task_t *task = create_task(tasks_dir, opts.create_task);
+        task_t *task = create_task(tasks_dir, opts.create_task, opts.no_editor);
         if (task->path != NULL && !opts.no_editor) {
             open_task(task);
         }
