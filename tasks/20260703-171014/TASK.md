@@ -1,4 +1,4 @@
-# Change query evaluation method from eval as you to building an ast tree and go from there
+# Change query evaluation method from eval as you go to building an ast tree and go from there
 
 - STATUS: OPEN
 - PRIORITY: 140
