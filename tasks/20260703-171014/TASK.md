@@ -1,6 +1,6 @@
 # Change query evaluation method from eval as you go to building an ast tree and go from there
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 140
 - TAGS: internal-rework,filters,feature
 

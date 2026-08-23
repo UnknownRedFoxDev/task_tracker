@@ -42,7 +42,9 @@ Parser *init_parser(Lexer *l)
 
 void clean_parser(Parser **s)
 {
-    clean_lexer(&(*s)->l);
+    if (*s) {
+        clean_lexer(&(*s)->l);
+    }
     free((*s));
     *s = NULL;
 }
@@ -218,27 +220,14 @@ void __dump_ast(Node_t *node, size_t level)
 
 void clean_ast(Node_t *node)
 {
-    switch(node->kind) {
-        case NODE_TAG: {
-            free(node->tag_name);
-            break;
-        }
-        case NODE_NOT: {
-            assert(node->lhs != NULL);
-            clean_ast(node->lhs);
-            break;
-        }
-        case NODE_AND:
-        case NODE_OR: {
-            assert(node->lhs != NULL);
-            clean_ast(node->lhs);
+    // For not-node handling, their rhs will be NULL
+    if (!node) return;
 
-            assert(node->rhs != NULL);
-            clean_ast(node->rhs);
-            break;
-        }
-        default:
-            UNREACHABLE("Node_Type");
+    if (node->kind == NODE_TAG) {
+        free(node->tag_name);
+    } else {
+        clean_ast(node->lhs);
+        clean_ast(node->rhs);
     }
 }
 

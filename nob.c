@@ -31,7 +31,7 @@ void add_standard_flags(Nob_Cmd *cmd)
         cmd_append(cmd, "-O0");
         // cmd_append(cmd, "-fsanitize=address");
     } else {
-        // cmd_append(cmd, "-O3");
+        cmd_append(cmd, "-O3");
     }
 }
 

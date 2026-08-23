@@ -127,7 +127,10 @@ void dump_token(Token_t t)
 
 void clean_lexer(Lexer **l)
 {
-    free((*l)->src);
+    if (*l) {
+        free((*l)->src);
+    }
+
     free(*l);
     *l = NULL;
 }

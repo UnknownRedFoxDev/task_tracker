@@ -1,8 +1,10 @@
+#include <assert.h>
 #include <ctype.h>
 #include <string.h>
 #define HT_IMPLEMENTATION
 #include "../lib/task.h"
 #include "../lib/helper.h"
+#include "../lib/parser.h"
 
 static Ht(const char*, int) __g_stats = { .hasheq = ht_cstr_hasheq };
 
@@ -236,137 +238,6 @@ int cmp_tasks_dist_void(const void *t1, const void *t2)
     return cmp_tasks_dist((const struct task_distance *)t1, (const struct task_distance *)t2);
 }
 
-typedef enum {
-    NONE,
-    NOT,
-    OR,
-    AND
-} boolean_keywords;
-
-const char *boolean_keyword_to_string(boolean_keywords key)
-{
-    switch (key) {
-        case NONE: return "none";
-        case NOT:  return "not";
-        case OR:   return "or";
-        case AND:  return "and";
-        default:
-            UNREACHABLE("boolean_keyword");
-    }
-}
-
-String_View see_next_token(String_View *sv) {
-    u64 i = 0;
-    while (i < sv->count && sv->data[i] != ' ') {
-        i += 1;
-    }
-    String_View result = nob_sv_from_parts(sv->data, i);
-    // if (sv_starts_with(result, sv_from_cstr("."))) sv_chop_left(&result, 1);
-    return result;
-}
-
-String_View get_next_token(String_View *sv)
-{
-    String_View result = sv_chop_by_delim(sv, ' ');
-    if (sv_starts_with(result, sv_from_cstr("."))) sv_chop_left(&result, 1);
-    return result;
-}
-
-void advance_to_next_token(String_View *sv, u64 i)
-{
-    if (sv->count > 0) {
-        if (i < sv->count) {
-            sv->count -= i + 1;
-            sv->data  += i + 1;
-        } else {
-            sv->count -= i;
-            sv->data  += i;
-        }
-    }
-}
-
-u32 eval_tag(const tasks_t *tasks, task_t **result, String_View tag, bool negate_mode)
-{
-    memset(result, 0, tasks->count * sizeof(task_t *));
-    u32 result_ite = 0;
-
-    nob_log(NOB_DEBUG, "-------------------------");
-    nob_log(NOB_DEBUG, "tag: %s" SV_Fmt, (negate_mode)? "NOT " : "", SV_Arg(tag));
-
-    da_foreach (task_t, task, tasks) {
-        bool *found = ht_find(&task->tags, temp_sv_to_cstr(tag));
-        if ((!found && negate_mode) || (found && !negate_mode)) {
-            if (minimal_log_level == NOB_DEBUG) print_task(stdout, task, DEFAULT_ALIGNMENT);
-            result[result_ite++] = task;
-        }
-    }
-
-    nob_log(NOB_DEBUG, "-------------------------");
-
-    return result_ite;
-}
-
-typedef Ht(char *, task_t *) tag_set;
-
-void eval_and_put(const tasks_t *tasks, task_t **result, u32 result_ite, tag_set *ht_tasks_set,
-                  boolean_keywords curr_mode, boolean_keywords prev_mode, String_View prev_token)
-{
-    nob_log(NOB_DEBUG, "Tasks fitting their tag(s) %s %s"SV_Fmt,
-            boolean_keyword_to_string(curr_mode), (prev_mode == NOT)? "not " : "", SV_Arg(prev_token));
-    for (u32 i = 0; i < result_ite; ++i) {
-        task_t *task = result[i];
-        bool *found = ht_find(&task->tags, temp_sv_to_cstr(prev_token));
-
-        // If task has the tag from `prev_token` and `AND` mode is enabled. Otherwise just put it in the HTable
-        if (curr_mode == OR || (((!found && prev_mode == NOT) || (found && prev_mode != NOT)) && curr_mode == AND)) {
-            if (minimal_log_level == NOB_DEBUG) print_task(stdout, task, DEFAULT_ALIGNMENT);
-            *ht_find_or_put(ht_tasks_set, task->uuid) = task;
-        }
-    }
-    nob_log(NOB_DEBUG, "-------------------------");
-}
-
-char *parse_parenthesis(String_View *tokens)
-{
-    String_View sub_expr_tokens = {0};
-    char *result = NULL;
-    String_Builder sb = {0};
-    int parenthesis_count = 0;
-
-    do {
-        String_View token = get_next_token(tokens);
-        sb_appendf(&sb, SV_Fmt"%s", SV_Arg(token), (tokens->count > 0)? " " : "");
-        nob_log(NOB_DEBUG, "token: "SV_Fmt, SV_Arg(token));
-        if (sv_ends_with(token, sv_from_cstr(")"))) {
-            while (sv_ends_with(token, sv_from_cstr(")"))) {
-                sv_chop_right(&token, 1);
-                parenthesis_count--;
-            }
-        } else if (sv_starts_with(token, sv_from_cstr("("))) {
-            if (sv_starts_with(token, sv_from_cstr("(."))) sv_chop_left(&token, 2);
-            else sv_chop_left(&token, 1);
-            parenthesis_count++;
-        }
-    } while (parenthesis_count && tokens->count > 0);
-    // parenthesis_count--; // Remove initial parenthesis count
-
-    if (parenthesis_count > 0) {
-        nob_log(ERROR, "Missing closing or opening parenthese(s)");
-        exit(1); // Temporary
-    }
-
-    sub_expr_tokens = sb_to_sv(sb);
-    sv_chop_left(&sub_expr_tokens, 1);
-    if (sv_ends_with(sub_expr_tokens, sv_from_cstr(") "))) sv_chop_right(&sub_expr_tokens, 2);
-    else sv_chop_right(&sub_expr_tokens, 1);
-    nob_log(NOB_DEBUG, "-------------------------");
-    nob_log(NOB_DEBUG, "sub expr: `"SV_Fmt"`", SV_Arg(sub_expr_tokens));
-    nob_log(NOB_DEBUG, "-------------------------");
-    result = sv_to_cstr(sub_expr_tokens);
-    free(sb.items);
-    return result;
-}
-
 char *str_to_lower(const char *cstr)
 {
     char *result = strdup(cstr);
@@ -378,149 +249,6 @@ char *str_to_lower(const char *cstr)
     return result;
 }
 
-/*
- * When doing `not <tag>` or `<tag1> and <tag2>` or `<tag1> or <tag2>`, I'm not comparing tags, I'm comparing lists created from the tags and filtering the remainder
- * so when `<tag1> and (<tag2> or <tag3>)` I should be comparing list of tag1, with the last made of at least tag2 or tag3
- */
-u32 eval_tokens(const tasks_t *tasks, String_View *tokens, task_t **result)
-{
-    tag_set ht_tasks_set = { .hasheq = ht_cstr_hasheq };
-
-    u32 prev_inner_ite = 0;
-    u32 result_ite = 0;
-
-    String_View prev_token = {0};
-    String_View curr_token = {0};
-    String_View next_token = {0};
-    boolean_keywords prev_mode = NONE;
-    boolean_keywords curr_mode = NONE;
-    boolean_keywords next_mode = NONE;
-
-    nob_log(NOB_DEBUG, "Tokens: " SV_Fmt, SV_Arg(*tokens));
-
-    while (tokens->count) {
-        curr_token = see_next_token(tokens);
-
-        // -=-=-=-=-=-=-=-=-=-=-= PARSING VERY FIRST INNER-EXPRESSION =-=-=-=-=-=-=-=-=-=-=-
-        if (sv_starts_with(curr_token, sv_from_cstr("("))) {
-            char *extracted_tokens =  parse_parenthesis(tokens);
-            String_View sub_expr_tokens = sv_from_cstr(extracted_tokens);
-            result_ite = eval_tokens(tasks, &sub_expr_tokens, result);
-
-            // If token string has extra fluff at the end
-            // e.g. (.feature or .bug) and .CLOSED
-            //                         ^ looks at those
-            if (tokens->count > 0) {
-                curr_token = get_next_token(tokens); // Most likely an 'or' or an 'and'
-                next_token = see_next_token(tokens);
-
-                if (sv_eq(curr_token, sv_from_cstr("and"))) curr_mode = AND;
-                else if (sv_eq(curr_token, sv_from_cstr("or"))) curr_mode = OR;
-            }
-            eval_and_put(tasks, result, result_ite, &ht_tasks_set, curr_mode, prev_mode, next_token);
-            free(extracted_tokens);
-            goto end;
-        } else {
-            nob_log(NOB_DEBUG, "Getting next token:");
-            curr_token = get_next_token(tokens);
-
-            nob_log(NOB_DEBUG, "before modif: %s", boolean_keyword_to_string(curr_mode));
-            nob_log(NOB_DEBUG, "prev: "SV_Fmt ", curr: "SV_Fmt ", next: "SV_Fmt, SV_Arg(prev_token), SV_Arg(curr_token), SV_Arg(next_token));
-            nob_log(NOB_DEBUG, "-------------------------");
-
-            if (sv_eq(curr_token, sv_from_cstr("not"))) {
-                curr_mode = NOT;
-                prev_token = curr_token;
-                curr_token = get_next_token(tokens);
-            } else if (sv_eq(curr_token, sv_from_cstr("and"))) {
-                curr_mode = AND;
-                next_token = see_next_token(tokens);
-            } else if (sv_eq(curr_token, sv_from_cstr("or"))) {
-                curr_mode = OR;
-                next_token = see_next_token(tokens);
-            }
-
-            nob_log(NOB_DEBUG, "after modif: %s", boolean_keyword_to_string(curr_mode));
-            nob_log(NOB_DEBUG, "prev: "SV_Fmt ", curr: "SV_Fmt ", next: "SV_Fmt, SV_Arg(prev_token), SV_Arg(curr_token), SV_Arg(next_token));
-            nob_log(NOB_DEBUG, "-------------------------");
-            nob_log(NOB_DEBUG, "Tokens left: %zu", tokens->count);
-        }
-
-
-        if (prev_token.count && prev_token.data[0] == '.') sv_chop_left(&prev_token, 1);
-        if (curr_token.data[0] == '.') sv_chop_left(&curr_token, 1);
-        if (next_token.count && next_token.data[0] == '.') sv_chop_left(&next_token, 1);
-        switch (curr_mode) {
-        case NONE: // Passthrough
-        case NOT: {
-            result_ite = eval_tag(tasks, result, curr_token, (curr_mode == NOT));
-        } break;
-
-        case AND: // Passthrough
-        case OR: {
-            if (sv_starts_with(next_token, sv_from_cstr("("))) {
-                char *temp_result =  parse_parenthesis(tokens);
-                String_View sub_expr_tokens = sv_from_cstr(temp_result);
-                u32 result_ite = eval_tokens(tasks, &sub_expr_tokens, result);
-                eval_and_put(tasks, result, result_ite, &ht_tasks_set, curr_mode, prev_mode, prev_token);
-                free(temp_result);
-            } else {
-                if (sv_eq(next_token, sv_from_cstr("TAGGED"))) {
-                    next_mode = NOT;
-                    next_token = sv_from_cstr("UNTAGGED");
-                }
-
-                if (sv_eq(next_token, sv_from_cstr("not"))) {
-                    next_mode = NOT;
-                    advance_to_next_token(tokens, next_token.count);
-                    next_token = get_next_token(tokens);
-                }
-
-                nob_log(NOB_DEBUG, "previous tasks: %s" SV_Fmt, (prev_mode == NOT)? "not " : "", SV_Arg(prev_token));
-                eval_and_put(tasks, result, prev_inner_ite, &ht_tasks_set, curr_mode, next_mode, next_token);
-                nob_log(NOB_DEBUG, "-------------------------");
-
-                // Parsing the next tasks having the tag from `next_token` once the previous tasks were tested
-                nob_log(NOB_DEBUG, "next tasks: %s" SV_Fmt, (next_mode == NOT)? "not " : "", SV_Arg(next_token));
-                result_ite = eval_tag(tasks, result, next_token, (next_mode == NOT));
-                eval_and_put(tasks, result, result_ite, &ht_tasks_set, curr_mode, prev_mode, prev_token);
-                nob_log(NOB_DEBUG, "-------------------------");
-            }
-
-
-            // Put the HTable's found tasks into the result array
-            memset(result, 0, result_ite * sizeof(task_t *));
-            result_ite = 0;
-            ht_foreach(val, &ht_tasks_set) {
-                result[result_ite++] = *val;
-            }
-
-            ht_reset(&ht_tasks_set);
-            advance_to_next_token(tokens, next_token.count);
-            curr_token = next_token;
-        } break;
-        default:
-            UNREACHABLE("boolean_keywords: curr_token in print_tasks()");
-        }
-
-end:
-        prev_mode = curr_mode;
-        prev_inner_ite = result_ite;
-        result_ite = 0;
-        prev_token = curr_token;
-    }
-
-    nob_log(NOB_DEBUG, "Result: ");
-    if (minimal_log_level == NOB_DEBUG) {
-        for (u32 i = 0; i < prev_inner_ite; ++i) {
-            print_task(stdout, result[i], DEFAULT_ALIGNMENT);
-        }
-    }
-    nob_log(NOB_DEBUG, "-------------------------");
-    ht_free(&ht_tasks_set);
-
-    return prev_inner_ite;
-}
 
 u32 filter_by_name(const tasks_t *tasks, String_View name, task_t **result)
 {
@@ -582,6 +310,114 @@ size_t find_best_alignment(task_t *tasks, u32 tasks_len)
     return alignment;
 }
 
+
+typedef Ht(char *, task_t *) tag_set;
+
+u32 eval_tag(const tasks_t *tasks, task_t **result, char *tag, bool negated)
+{
+    memset(result, 0, tasks->count * sizeof(task_t *));
+    u32 result_ite = 0;
+
+    nob_log(NOB_DEBUG, "-------------------------");
+    nob_log(NOB_DEBUG, "tag: %s %s", (negated)? "NOT " : "", tag);
+
+    da_foreach (task_t, task, tasks) {
+        bool *found = ht_find(&task->tags, tag);
+        if ((!found && negated) || (found && !negated)) {
+            if (minimal_log_level == NOB_DEBUG) print_task(stdout, task, DEFAULT_ALIGNMENT);
+            result[result_ite++] = task;
+        }
+    }
+
+    nob_log(NOB_DEBUG, "-------------------------");
+
+    return result_ite;
+}
+
+u32 eval_node(const tasks_t *tasks, Node_t *root, bool negated, task_t **result)
+{
+    tag_set ht_tasks_set = { .hasheq = ht_cstr_hasheq };
+    u32 result_ite = 0;
+    switch (root->kind) {
+    case NODE_TAG: {
+        result_ite = eval_tag(tasks, result, root->tag_name, negated);
+        break;
+    }
+    case NODE_NOT: {
+        assert(root->lhs && "not-node's lhs should not be NULL");
+        result_ite = eval_node(tasks, root->lhs, true, result);
+        break;
+    }
+    case NODE_AND: {
+        assert(root->lhs && "and-node's lhs should not be NULL");
+        task_t **lhs_result =  calloc(tasks->count, sizeof(task_t *));
+        if (!lhs_result) {
+            nob_log(ERROR, "Failed to allocate space for table of task_t pointers");
+            exit(1);
+        }
+
+        u32 lhs_ite = 0;
+        u32 rhs_ite = 0;
+        lhs_ite = eval_node(tasks, root->lhs, negated, lhs_result);
+
+        assert(root->lhs && "and-node's rhs should not be NULL");
+        rhs_ite = eval_node(tasks, root->rhs, negated, result);
+
+        // TASK(20260823-234429): Optimize NODE_AND eval_node() case when accumulating both results array
+        for (u32 i = 0; i < lhs_ite; ++i) {
+            task_t *lhs_task = lhs_result[i];
+            for (u32 j = 0; j < rhs_ite; ++j) {
+                task_t *rhs_task = result[j];
+                if (lhs_task == rhs_task) {
+                    *ht_find_or_put(&ht_tasks_set, rhs_task->uuid) = rhs_task;
+                    break;
+                }
+            }
+        }
+
+        // Reset result table
+        memset(result, 0, result_ite * sizeof(task_t *));
+        result_ite = 0;
+
+        // Fill it back with the result of both lhs and rhs tags
+        ht_foreach(val, &ht_tasks_set) {
+            result[result_ite++] = *val;
+        }
+
+        break;
+    }
+    case NODE_OR: {
+        assert(root->lhs && "and-node's lhs should not be NULL");
+        result_ite = eval_node(tasks, root->lhs, negated, result);
+        for (u32 i = 0; i < result_ite; ++i) {
+            *ht_find_or_put(&ht_tasks_set, result[i]->uuid) = result[i];
+        }
+
+        assert(root->lhs && "and-node's rhs should not be NULL");
+        memset(result, 0, result_ite * sizeof(task_t *));
+        result_ite = eval_node(tasks, root->rhs, negated, result);
+        for (u32 i = 0; i < result_ite; ++i) {
+            *ht_find_or_put(&ht_tasks_set, result[i]->uuid) = result[i];
+        }
+
+        // Reset result table
+        memset(result, 0, result_ite * sizeof(task_t *));
+        result_ite = 0;
+
+        // Fill it back with the result of both lhs and rhs tags
+        ht_foreach(val, &ht_tasks_set) {
+            result[result_ite++] = *val;
+        }
+
+        break;
+    }
+    default:
+        UNREACHABLE("Node_Kind");
+    }
+
+    return result_ite;
+}
+
 // pre-defined tags: .OPEN, .CLOSED, .UNTAGGED, .TAGGED (not .UNTAGGED)
 // by default: .OPEN
 bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens, bool reversed)
@@ -594,10 +430,13 @@ bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens, bool reversed)
     bool name_filtering = false;
     bool result = true;
     Flag_List_Mut save = *tokens;
-    task_t **list = NULL;
     task_t *ordered = NULL;
     u32 n = 0;
+    Lexer *l = NULL;
+    Parser *s = NULL;
+    Node_t *ast = NULL;
 
+    task_t **list = NULL;
     list = calloc(tasks->count, sizeof(task_t *));
     if (!list) return_defer(false);
 
@@ -644,11 +483,18 @@ bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens, bool reversed)
         if (!ignore_default && tokens->count > 1 && !all)
             sb_appendf(&sb, ")");
 
+        sb_append_null(&sb);
         sv = sb_to_sv(sb);
         *tokens = save;
 
+        // nob_log(INFO, SV_Fmt, SV_Arg(sv));
+
+        l   = init_lexer(sv.items);
+        s   = init_parser(l);
+        ast = parse_query(s);
+
         // Size of tasks->count; The list may contain holes, or be incomplete due to the filtering
-        n = eval_tokens(tasks, &sv, list);
+        n = eval_node(tasks, ast, false, list);
     } else {
         n = filter_by_name(tasks, sv_from_cstr(tokens->items[0]), list);
     }
@@ -678,6 +524,8 @@ defer:
     if (result) {
         free(list);
         free(ordered);
+        clean_ast(ast);
+        clean_parser(&s);
     }
 
     free(sb.items);

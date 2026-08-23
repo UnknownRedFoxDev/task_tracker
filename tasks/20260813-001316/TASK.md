@@ -1,4 +1,4 @@
-# Overwriting title does not work
+# Overwrite title does work
 
 - STATUS: CLOSED
 - PRIORITY: 80
