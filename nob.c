@@ -31,7 +31,7 @@ void add_standard_flags(Nob_Cmd *cmd)
         cmd_append(cmd, "-O0");
         // cmd_append(cmd, "-fsanitize=address");
     } else {
-        cmd_append(cmd, "-O3");
+        // cmd_append(cmd, "-O3");
     }
 }
 
@@ -64,7 +64,7 @@ bool compile_submodules(submodules *modules, bool *needs_recompile)
             printf("Input path: %s\nOutput path: %s\n", input, output);
             compile_command(&cmd, input, output, false); // No linking yet
             if (!cmd_run(&cmd, .async = &procs)) return_defer(false);
-            printf("-------------\n");
+            printf("-------------\n\n");
         }
     }
 
@@ -159,6 +159,8 @@ int main(int argc, char **argv)
 
     da_append(&modules, "task");
     da_append(&modules, "helper");
+    da_append(&modules, "lexer");
+    da_append(&modules, "parser");
 
     if (rebuild || !file_exists(BIN_DIR)) initialise_directories();
     if (!nobuild && !compile_submodules(&modules, &needs_recompile)) return_defer(1);
