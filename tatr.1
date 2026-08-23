@@ -9,6 +9,7 @@ tatr \- a task tracker tooling to keep track of your tasks
 .br
 .B tatr
 .B init
+.RI [\| y \|]
 .br
 .B tatr
 .B ls
@@ -53,6 +54,14 @@ tatr \- a task tracker tooling to keep track of your tasks
 .br
 .B tatr
 .B sum[mary]
+.br
+.B tatr
+.B overwrite
+.I <task-id>
+.RI [\| "overwrite options" \|]
+.RI [\|"new\ title"\|]
+.\" \&.\|.\|.\&
+.br
 .SH DESCRIPTION
 .B tatr
 is a task tracker utility tooling. It enables the end-user to track the up-and-coming tasks to do. The tooling can create
@@ -170,6 +179,31 @@ Creates a new task of title
 .br
 .I new options
 allow you to add comma seperated tags, and to define the task's priority as it's being created.
+.TP
+.B tatr\ overwrite\ <task-id>\ [\|overwrite\ options\|]\ [\|"new title"\|]
+.br
+Overwrites the task by its
+.IR task-id \&.\&
+.br
+The
+.IR overwrite\ options
+are similar to the
+.B tatr new
+options. They allow you to directly modify a task's properties from the CLI.
+.br
+.BI \-p \ <int>
+allows you to change the task's priority
+.br
+.BI \-t \ <tag>,\&.\|.\|.\&
+allows you to overwrite the task's tags
+.br
+.BI \-t \ +<tag>,-<tag>\&.\|.\|.\&
+allows you to add or remove tags from the task's tags
+.br
+.BI \-s \ O[\|pen\|]
+|
+.I C[\|losed\|]
+changes the task's status to opened or closed
 .SH Examples
 .TP
 tatr new -t feature,debug "this is a feature to be added for debug purposed" -p 42
@@ -206,6 +240,8 @@ As of 2026-07-03, the filtering system still lacks enclosing with parenthesis an
 As of 2026-07-04, the filtering system now fully supports enclosing with parenthesis
 .TP
 As of 2026-07-06, you can now either filter by name or by tags
+.TP
+As of 2026-08-24, query language now works using a proper lexer, parser and even an ast tree.
 .SH AUTHORS
 Designed, implemented and improved by
 .B UnknownRedFoxo

@@ -31,7 +31,7 @@ The default behavior is to list every opened task available in their order of pr
 List of feature available:
 
 `./tatr help`: See help message for more information  
-`./tatr init`: initializes the current working directory with a tasks/ directory if it doesn't yet exists  
+`./tatr init [y]`: Initialize the tasks/ directory used by tatr, 'y' may be given to force creation  
 `./tatr edit <task-id>`: Opens in your $EDITOR (or default to vim) the task  
 `./tatr find <task-id>`: Finds and prints the task for quick access  
 `./tatr cat <task-id>`: Print a task's details. Avoids having to edit it just to see what's written.  
@@ -40,8 +40,8 @@ List of feature available:
 `./tatr (rm|del) <task-id> [...]`: Deletes the task(s) specified  
 `./tatr close <task-id> [...]`: Closes the task(s)  
 `./tatr reopen <task-id> [...]`: Reopens the task(s)  
-`./tatr (summary|sum)`: See the different stats related to the task available
-
+`./tatr (summary|sum)`: See the different stats related to the task available  
+`./tatr overwrite <task-id> [-t [+|-]<tags> ...] [-p [+|-]<priority>] [-s <O[PEN] | C[LOSED]>] [title]`: Given a task-id, you can modify its tags, priority, status and title  
 
 ## Filtering the tasks (tatr ls)
 
@@ -82,6 +82,16 @@ Some predefined tags:
 
 ```bash
 ./tatr ls not .CLOSED # every opened tasks
+```
+
+```bash
+./tatr ls .all and (.bug and not (.complex or .important)) # for every tasks, if they contain bug, while not having complex or important
+# equivalent to
+./tatr ls .all and (.bug and (not .complex or not .important)) # for every tasks, if they contain bug, while not having complex or important
+```
+
+```bash
+./tatr ls not (not (not (not (not (not .urmom))))) # every opened task that did urmom
 ```
 
 
