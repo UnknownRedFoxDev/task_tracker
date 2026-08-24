@@ -126,16 +126,18 @@ void print_task(FILE *stream, task_t *task, int alignment)
     String_Builder sb = {0};
     sb_appendf(&sb, "%s./tasks/%s/TASK.md%s:%s1%s: ", COLOR_RED, task->uuid, COLOR_RESET, COLOR_YELLOW, COLOR_RESET);
     sb_appendf(&sb, "[PRIORITY: %-*zu ", alignment, task->priority);
-    if (task->tags.count) {
+    size_t tag_count = 0;
+    if (!ht_find(&task->tags, "UNTAGGED")) {
         sb_appendf(&sb, ", TAGS: ");
         ht_foreach (val, &task->tags) {
             const char *key = ht_key(&task->tags, val);
+            tag_count += 1;
             if (strcmp(key, "OPEN") && strcmp(key, "CLOSED") && strcmp(key, "UNTAGGED"))
-                sb_appendf(&sb, "%s,", key);
+                sb_appendf(&sb, "%s%s", key, (tag_count == task->tags.count)? "" : ",");
         }
-        sb.items[sb.count-1] = ']';
     }
-    sb_appendf(&sb, " %s\n", task->name);
+        sb_append_cstr(&sb, "]");
+    sb_appendf(&sb, " %s%s%s\n", COLOR_BOLD, task->name, COLOR_RESET);
     sb_append_null(&sb);
     fprintf(stream, "%s", sb.items);
     free(sb.items);
@@ -524,10 +526,10 @@ defer:
     if (result) {
         free(list);
         free(ordered);
-        clean_ast(ast);
-        clean_parser(&s);
     }
 
+    clean_ast(ast);
+    clean_parser(&s);
     free(sb.items);
     return result;
 }

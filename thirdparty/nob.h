@@ -1,4 +1,4 @@
-/* nob - v3.8.2 - Public Domain - https://github.com/tsoding/nob.h
+/* nob - v3.10.0 - Public Domain - https://github.com/tsoding/nob.h
 
    This library is the next generation of the [NoBuild](https://github.com/tsoding/nobuild) idea.
 
@@ -80,6 +80,8 @@
         but if you want to know what is discouraged you may want to enable this flag.
       - NOB_EXPERIMENTAL_DELETE_OLD - Experimental feature that automatically removes `nob.old` files. It's unclear how well
         it works on Windows, so it's experimental for now.
+      - NOB_EXPERIMENTAL_TRACE_CMD_RUN_FAIL - Log the locations of fail nob_cmd_run()-s. It's behind an experimental flag
+        because I'm not sure how much it alters the UX of the library for other people, but this is something I personally need.
       - NOB_UNSTRIP_PREFIX - do not strip the `nob_` prefixes from non-redefinable names.
       - NOB_NO_ECHO - do not echo the actions various nob functions are doing (like nob_cmd_run(), nob_mkdir_if_not_exists(), etc).
 
@@ -93,7 +95,7 @@
       - NOB_FREE(ptr) - Redefine which free() nob.h shall use.
       - NOB_DEPRECATED(message) - Redefine how nob.h shall mark functions as deprecated.
       - NOB_DA_INIT_CAP - Redefine initial capacity of Dynamic Arrays.
-      - NOB_TEMP_CAPACITY - Redefine the capacity of the temporary storate.
+      - NOB_TEMP_CAPACITY - Redefine the capacity of the temporary storage.
       - NOB_REBUILD_URSELF(binary_path, source_path) - redefine how nob.h shall rebuild itself.
       - NOB_WIN32_ERR_MSG_SIZE - Redefine the capacity of the buffer for error message on Windows.
 */
@@ -201,9 +203,13 @@
 #    define NOB_PRINTF_FORMAT(STRING_INDEX, FIRST_TO_CHECK)
 #endif
 
+NOBDEF void nob__panicf(const char *file, int line, const char *label, const char *format, ...);
+
 #define NOB_UNUSED(value) (void)(value)
 #define NOB_TODO(message) do { fprintf(stderr, "%s:%d: TODO: %s\n", __FILE__, __LINE__, message); abort(); } while(0)
+#define NOB_TODOF(...) nob__panicf(__FILE__, __LINE__, "TODO", __VA_ARGS__)
 #define NOB_UNREACHABLE(message) do { fprintf(stderr, "%s:%d: UNREACHABLE: %s\n", __FILE__, __LINE__, message); abort(); } while(0)
+#define NOB_UNREACHABLEF(...) nob__panicf(__FILE__, __LINE__, "UNREACHABLE", __VA_ARGS__)
 
 #define NOB_ARRAY_LEN(array) (sizeof(array)/sizeof(array[0]))
 #define NOB_ARRAY_GET(array, index) \
@@ -389,7 +395,7 @@ NOBDEF void nob_dir_entry_close(Nob_Dir_Entry dir);
 #define nob_da_pop(da) (da)->items[(NOB_ASSERT((da)->count > 0), --(da)->count)]
 #define nob_da_first(da) (da)->items[(NOB_ASSERT((da)->count > 0), 0)]
 #define nob_da_last(da) (da)->items[(NOB_ASSERT((da)->count > 0), (da)->count-1)]
-#define da_get(da, idx) (da)->items[i]
+#define da_get(da, i) (da)->items[(NOB_ASSERT((da)->count > 0), i)]
 #define nob_da_remove_unordered(da, i)               \
     do {                                             \
         size_t j = (i);                              \
@@ -542,6 +548,7 @@ typedef struct {
 
 // Run the command with options.
 NOBDEF bool nob_cmd_run_opt(Nob_Cmd *cmd, Nob_Cmd_Opt opt);
+NOBDEF bool nob__cmd_run_opt_with_location(Nob_Cmd *cmd, const char *file, int line, Nob_Cmd_Opt opt);
 
 // Command Chains (in Shell Scripting they are know as Pipes)
 //
@@ -618,7 +625,7 @@ NOBDEF uint64_t nob_nanos_since_unspecified_epoch(void);
 
 // Same as nob_cmd_run_opt but using cool variadic macro to set the default options.
 // See https://x.com/vkrajacic/status/1749816169736073295 for more info on how to use such macros.
-#define nob_cmd_run(cmd, ...) nob_cmd_run_opt((cmd), NOB_CLIT(Nob_Cmd_Opt){__VA_ARGS__})
+#define nob_cmd_run(cmd, ...) nob__cmd_run_opt_with_location((cmd), __FILE__, __LINE__, NOB_CLIT(Nob_Cmd_Opt){ __VA_ARGS__ })
 
 // DEPRECATED:
 //
@@ -788,7 +795,7 @@ NOBDEF char *nob_temp_running_executable_path(void);
 // TODO: we should probably document somewhere all the compilers we support
 
 // The nob_cc_* macros try to abstract away the specific compiler.
-// They are verify basic and not particularly flexible, but you can redefine them if you need to
+// They are very basic and not particularly flexible, but you can redefine them if you need to
 // or not use them at all and create your own abstraction on top of Nob_Cmd.
 
 #ifndef nob_cc
@@ -942,6 +949,12 @@ NOBDEF Nob_String_View nob_sv_from_parts(const char *data, size_t count);
 // nob_sb_to_sv() enables you to just view Nob_String_Builder as Nob_String_View
 #define nob_sb_to_sv(sb) nob_sv_from_parts((sb).items, (sb).count)
 
+#define NOB_SVLIT(lit) (NOB_CLIT(Nob_String_View){.count = sizeof(lit)-1, .data = (lit)})
+// Generally majority of the C/C++ compilers will allow you to use NOB_SVLIT to construct global variables.
+// But there are some (specifically MSVC with /TC flag enabled) that will refuse.
+// For such compilers use NOB_SVLIT_STATIC instead.
+#define NOB_SVLIT_STATIC(lit) {.count = sizeof(lit)-1, .data = (lit)}
+
 // printf macros for String_View
 #ifndef SV_Fmt
 #define SV_Fmt "%.*s"
@@ -953,14 +966,36 @@ NOBDEF Nob_String_View nob_sv_from_parts(const char *data, size_t count);
 //   String_View name = ...;
 //   printf("Name: "SV_Fmt"\n", SV_Arg(name));
 
+// Stolen from Jai's Unicode module
+// Example:
+// ```c
+// String_View sv = SVLIT("Привет, Мир!");
+// while (sv.count > 0) {
+//     size_t n = nob_bytes_for_utf8[(uint8_t)*sv.data];
+//     String_View c = sv_chop_left(&sv, n);
+//     printf(SV_Fmt" => %zu\n", SV_Arg(c), n);
+// }
+// ```
+static const uint8_t nob_bytes_for_utf8[] = {
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2, 2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
+    3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3, 4,4,4,4,4,4,4,4,5,5,5,5,6,6,6,6,
+};
+
+NOBDEF size_t nob_sv_utf8_len(Nob_String_View sv, size_t *bytes_overrun);
+NOBDEF bool nob_delete_walk_entry(Nob_Walk_Entry entry);
+NOBDEF bool nob_delete_directory_recursively(const char *dir_path);
+
 #ifdef _WIN32
 
 NOBDEF char *nob_win32_error_message(DWORD err);
 
 #endif // _WIN32
-
-NOBDEF bool nob_delete_walk_entry(Nob_Walk_Entry entry);
-NOBDEF bool nob_delete_directory_recursively(const char *dir_path);
 
 #endif // NOB_H_
 
@@ -982,6 +1017,22 @@ NOBDEF void nob__cmd_append(Nob_Cmd *cmd, size_t n, const char **args)
     for (size_t i = 0; i < n; ++i) {
         nob_da_append(cmd, args[i]);
     }
+}
+
+NOBDEF size_t nob_sv_utf8_len(Nob_String_View sv, size_t *bytes_overrun)
+{
+    size_t i = 0;
+    size_t n = 0;
+    while (true) {
+        if (i >= sv.count) {
+            if (bytes_overrun) *bytes_overrun = i - sv.count;
+            return n;
+        }
+        i += nob_bytes_for_utf8[(uint8_t)sv.data[i]];
+        n += 1;
+    }
+    NOB_UNREACHABLE("sv_utf8_len");
+    return 0;
 }
 
 #ifdef _WIN32
@@ -1023,6 +1074,17 @@ NOBDEF char *nob_win32_error_message(DWORD err) {
 }
 
 #endif // _WIN32
+
+NOBDEF void nob__panicf(const char *file, int line, const char *label, const char *format, ...)
+{
+    fprintf(stderr, "%s:%d: %s: ", file, line, label);
+    va_list args;
+    va_start(args, format);
+    vfprintf(stderr, format, args);
+    va_end(args);
+    fprintf(stderr, "\n");
+    abort();
+}
 
 // The implementation idea is stolen from https://github.com/zhiayang/nabs
 NOBDEF void nob__go_rebuild_urself(int argc, char **argv, const char *source_path, ...)
@@ -1237,6 +1299,20 @@ NOBDEF int nob_nprocs(void)
 #else
     return sysconf(_SC_NPROCESSORS_ONLN);
 #endif
+}
+
+NOBDEF bool nob__cmd_run_opt_with_location(Nob_Cmd *cmd, const char *file, int line, Nob_Cmd_Opt opt)
+{
+    bool ok = nob_cmd_run_opt(cmd, opt);
+#ifdef NOB_EXPERIMENTAL_TRACE_CMD_RUN_FAIL
+    if (!ok) {
+        nob_log(NOB_ERROR, "%s:%d: ERROR: cmd_run failed", file, line);
+    }
+#else
+    NOB_UNUSED(file);
+    NOB_UNUSED(line);
+#endif // NOB_EXPERIMENTAL_TRACE_CMD_RUN_FAIL
+    return ok;
 }
 
 NOBDEF bool nob_cmd_run_opt(Nob_Cmd *cmd, Nob_Cmd_Opt opt)
@@ -1907,26 +1983,29 @@ NOBDEF void nob_default_log_handler(Nob_Log_Level level, const char *fmt, va_lis
 {
     if (level < nob_minimal_log_level) return;
 
+    const char *prefix = NULL;
     switch (level) {
     case NOB_DEBUG:
-        fprintf(stderr, "[DEBUG] ");
+        prefix = "[DEBUG] ";
         break;
     case NOB_INFO:
-        fprintf(stderr, "[INFO] ");
+        prefix = "[INFO] ";
         break;
     case NOB_WARNING:
-        fprintf(stderr, "[WARNING] ");
+        prefix = "[WARNING] ";
         break;
     case NOB_ERROR:
-        fprintf(stderr, "[ERROR] ");
+        prefix = "[ERROR] ";
         break;
     case NOB_NO_LOGS: return;
     default:
         NOB_UNREACHABLE("Nob_Log_Level");
     }
 
-    vfprintf(stderr, fmt, args);
-    fprintf(stderr, "\n");
+    size_t mark = nob_temp_save();
+    const char *msg = nob_temp_vsprintf(fmt, args);
+    fprintf(stderr, "%s%s\n", prefix, msg);
+    nob_temp_rewind(mark);
 }
 
 NOBDEF void nob_null_log_handler(Nob_Log_Level level, const char *fmt, va_list args)
@@ -1940,26 +2019,29 @@ NOBDEF void nob_cancer_log_handler(Nob_Log_Level level, const char *fmt, va_list
 {
     if (level < nob_minimal_log_level) return;
 
+    const char *prefix = NULL;
     switch (level) {
     case NOB_DEBUG:
-        fprintf(stderr, "🐞 \x1b[35m[DEBUG]\x1b[0m ");
+        prefix = "🐞 \x1B[35m[DEBUG]\x1b[0m ";
         break;
     case NOB_INFO:
-        fprintf(stderr, "ℹ️ \x1b[36m[INFO]\x1b[0m ");
+        prefix = "ℹ️ \x1b[36m[INFO]\x1b[0m ";
         break;
     case NOB_WARNING:
-        fprintf(stderr, "⚠️ \x1b[33m[WARNING]\x1b[0m ");
+        prefix = "⚠️ \x1b[33m[WARNING]\x1b[0m ";
         break;
     case NOB_ERROR:
-        fprintf(stderr, "🚨 \x1b[31m[ERROR]\x1b[0m ");
+        prefix = "🚨 \x1b[31m[ERROR]\x1b[0m ";
         break;
     case NOB_NO_LOGS: return;
     default:
         NOB_UNREACHABLE("Nob_Log_Level");
     }
 
-    vfprintf(stderr, fmt, args);
-    fprintf(stderr, "\n");
+    size_t mark = nob_temp_save();
+    const char *msg = nob_temp_vsprintf(fmt, args);
+    fprintf(stderr, "%s%s\n", prefix, msg);
+    nob_temp_rewind(mark);
 }
 
 NOBDEF void nob_log(Nob_Log_Level level, const char *fmt, ...)
@@ -2651,6 +2733,11 @@ NOBDEF Nob_String_View nob_sv_trim_left(Nob_String_View sv)
         i += 1;
     }
 
+    // Apparently if sv.data == 0 and i == 0 adding them
+    // together is an undefined behavior. According to
+    // clang's UndefinedBehaviorSanitizer at least.
+    if (i == 0) return sv;
+
     return nob_sv_from_parts(sv.data + i, sv.count - i);
 }
 
@@ -2867,12 +2954,12 @@ NOBDEF char *nob_temp_running_executable_path(void)
 #endif
 }
 
-bool nob_delete_walk_entry(Nob_Walk_Entry entry)
+NOBDEF bool nob_delete_walk_entry(Nob_Walk_Entry entry)
 {
     return nob_delete_file(entry.path);
 }
 
-bool nob_delete_directory_recursively(const char *dir_path)
+NOBDEF bool nob_delete_directory_recursively(const char *dir_path)
 {
     return nob_walk_dir(dir_path, nob_delete_walk_entry, .post_order = true);
 }
@@ -2889,7 +2976,11 @@ bool nob_delete_directory_recursively(const char *dir_path)
     // end of the file after the NOB_IMPLEMENTATION.
     #ifndef NOB_UNSTRIP_PREFIX
         #define TODO NOB_TODO
+        #define TODOF NOB_TODOF
         #define UNREACHABLE NOB_UNREACHABLE
+        #define UNREACHABLEF NOB_UNREACHABLEF
+        #define SVLIT NOB_SVLIT
+        #define SVLIT_STATIC NOB_SVLIT_STATIC
         #define UNUSED NOB_UNUSED
         #define ARRAY_LEN NOB_ARRAY_LEN
         #define ARRAY_GET NOB_ARRAY_GET
@@ -2935,6 +3026,8 @@ bool nob_delete_directory_recursively(const char *dir_path)
         #define write_entire_file nob_write_entire_file
         #define get_file_type nob_get_file_type
         #define delete_file nob_delete_file
+        #define delete_walk_entry nob_delete_walk_entry
+        #define delete_directory_recursively nob_delete_directory_recursively
         #define Dir_Entry Nob_Dir_Entry
         #define dir_entry_open nob_dir_entry_open
         #define dir_entry_next nob_dir_entry_next
@@ -2951,7 +3044,10 @@ bool nob_delete_directory_recursively(const char *dir_path)
         #define da_remove_unordered nob_da_remove_unordered
         #define da_foreach nob_da_foreach
         #define fa_append nob_fa_append
-        #define swap nob_swap
+        // C++ has it's own std::swap which may collide with ours
+        #ifndef __cplusplus
+            #define swap nob_swap
+        #endif // __cplusplus
         #define String_Builder Nob_String_Builder
         #define read_entire_file nob_read_entire_file
         #define sb_appendf nob_sb_appendf
@@ -3043,19 +3139,29 @@ bool nob_delete_directory_recursively(const char *dir_path)
         #define sv_ends_with_cstr nob_sv_ends_with_cstr
         #define sv_from_cstr nob_sv_from_cstr
         #define sv_from_parts nob_sv_from_parts
+        #define sv_utf8_len nob_sv_utf8_len
+        #define bytes_for_utf8 nob_bytes_for_utf8
         #define sb_to_sv nob_sb_to_sv
         #define win32_error_message nob_win32_error_message
         #define nprocs nob_nprocs
         #define nanos_since_unspecified_epoch nob_nanos_since_unspecified_epoch
         #define NANOS_PER_SEC NOB_NANOS_PER_SEC
-        #define delete_walk_entry nob_delete_walk_entry
-        #define delete_directory_recursively nob_delete_directory_recursively
     #endif // NOB_STRIP_PREFIX
 #endif // NOB_STRIP_PREFIX_GUARD_
 
 /*
    Revision history:
 
+     3.10.0 (2026-07-17) Make NOB_SVLIT a bit more usable at compile-time (by @Arhcout)
+                         Add NOB_SVLIT_STATIC for when a compiler simply refuses to accept NOB_SVLIT() at compile-time (looking at you `cl.exe /TC`) (by @rexim)
+      3.9.0 (2026-07-15) Add NOB_TODOF() and NOB_UNREACHABLEF()
+                         Add NOB_SVLIT()
+                         Add nob_bytes_for_utf8[] and nob_sv_utf8_len()
+                         Add String_View.items alias to String_View.data
+                         Make nob_cmd_run log the location of its failure
+                         Make nob_default_log_handler and nob_cancer_log_handler work better in multi-threaded or multi-process environments (by @ChenXinyu-CHD)
+                         Do not strip the prefix for nob_swap on C++ (by @LoganjdM)
+      3.8.3 (2026-07-14) Fix "applying zero offset to null pointer" error by clang's UndefinedBehaviorSanitizer
       3.8.2 (2026-04-01) Fix the broken type safety of nob_cmd_append() (by @aalmkainzi)
       3.8.1 (2026-04-01) Fix annoying clang warning
       3.8.0 (2026-03-24) Add NOB_CLIT()

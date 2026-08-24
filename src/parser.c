@@ -83,6 +83,7 @@ Node_t *create_not_node(Node_t *child)
 
 void advance_token(Parser *s)
 {
+    free(s->prev.string);
     s->prev = s->curr;
     s->curr = next_token(s->l);
 }
@@ -225,6 +226,8 @@ void clean_ast(Node_t *node)
 
     if (node->kind == NODE_TAG) {
         free(node->tag_name);
+        node->tag_name = NULL;
+        free(node);
     } else {
         clean_ast(node->lhs);
         clean_ast(node->rhs);
