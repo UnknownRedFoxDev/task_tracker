@@ -40,7 +40,7 @@ List of feature available:
 `./tatr (rm|del) <task-id> [...]`: Deletes the task(s) specified  
 `./tatr close <task-id> [...]`: Closes the task(s)  
 `./tatr reopen <task-id> [...]`: Reopens the task(s)  
-`./tatr (summary|sum)`: See the different stats related to the task available  
+`./tatr sum[mary]`: See the different stats related to the tasks available  
 `./tatr overwrite <task-id> [-t [+|-]<tags> ...] [-p [+|-]<priority>] [-s <O[PEN] | C[LOSED]>] [title]`: Given a task-id, you can modify its tags, priority, status and title  
 
 ## Filtering the tasks (tatr ls)
