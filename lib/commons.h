@@ -60,6 +60,11 @@ typedef struct {
     task_status status;
 } task_info_t;
 
+typedef struct {
+    bool reversed;
+    bool byHUID;
+} print_tasks_opt;
+
 typedef struct cmdline_opts_s {
     bool  help;
     bool  list_tasks;
@@ -77,6 +82,7 @@ typedef struct cmdline_opts_s {
     task_info_t *create_task;
     task_info_t *overwrite_task;
     Flag_List_Mut filters;
+    print_tasks_opt print_tasks_opts;
 } cmdline_opts_t;
 
 

@@ -94,11 +94,24 @@ void parse_options(int argc, char **argv, cmdline_opts_t *opts)
             break;
         } else if (strcmp(flag, "ls") == 0) {
             opts->list_tasks = true;
-            opts->list_tasks_reversed = false;
+            if (argc > 0) {
+                flag = argv[0];
+                if (strcmp(flag, "-id") == 0) {
+                    opts->print_tasks_opts.byHUID = true;
+                    shift(argv, argc);
+                }
+            }
             break;
         } else if (strcmp(flag, "ls-rev") == 0) {
             opts->list_tasks = true;
-            opts->list_tasks_reversed = true;
+            opts->print_tasks_opts.reversed = true;
+            if (argc > 0) {
+                flag = argv[0];
+                if (strcmp(flag, "-id") == 0) {
+                    opts->print_tasks_opts.byHUID = true;
+                    shift(argv, argc);
+                }
+            }
             break;
         } else if (strcmp(flag, "edit") == 0) {
             if (!argc) {
@@ -131,7 +144,6 @@ void parse_options(int argc, char **argv, cmdline_opts_t *opts)
                     opts->force_init_dir = true;
                 }
             }
-
             break;
         } else if (strcmp(flag, "overwrite") == 0) {
             opts->overwrite_task = calloc(1, sizeof(task_info_t));

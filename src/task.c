@@ -200,6 +200,27 @@ struct task_distance {
     task_t *task;
 };
 
+// By HUID
+int cmp_tasks_by_huid(const task_t *t1, const task_t *t2)
+{
+    return strcmp(t1->uuid, t2->uuid);
+}
+
+int cmp_tasks_by_huid_reversed(const task_t *t1, const task_t *t2)
+{
+    return strcmp(t2->uuid, t1->uuid);
+}
+int cmp_tasks_by_huid_void(const void *t1, const void *t2)
+{
+    return cmp_tasks_by_huid((const task_t *)t1, (const task_t *)t2);
+}
+
+int cmp_tasks_by_huid_reversed_void(const void *t1, const void *t2)
+{
+    return cmp_tasks_by_huid_reversed((const task_t *)t1, (const task_t *)t2);
+}
+
+// By Task's Priority
 int cmp_tasks(const task_t *t1, const task_t *t2)
 {
     return t2->priority - t1->priority;
@@ -220,25 +241,6 @@ int cmp_tasks_rev_void(const void *t1, const void *t2)
     return cmp_tasks_rev((const task_t *)t1, (const task_t *)t2);
 }
 
-int cmp_tasks_a(const struct task_distance *t1, const struct task_distance *t2)
-{
-    return t2->task->priority - t1->task->priority;
-}
-
-int cmp_tasks_void_a(const void *t1, const void *t2)
-{
-    return cmp_tasks_a((const struct task_distance *)t1, (const struct task_distance *)t2);
-}
-
-int cmp_tasks_dist(const struct task_distance *t1, const struct task_distance *t2)
-{
-    return t2->dist - t1->dist;
-}
-
-int cmp_tasks_dist_void(const void *t1, const void *t2)
-{
-    return cmp_tasks_dist((const struct task_distance *)t1, (const struct task_distance *)t2);
-}
 
 char *str_to_lower(const char *cstr)
 {
@@ -422,7 +424,7 @@ u32 eval_node(const tasks_t *tasks, Node_t *root, bool negated, task_t **result)
 
 // pre-defined tags: .OPEN, .CLOSED, .UNTAGGED, .TAGGED (not .UNTAGGED)
 // by default: .OPEN
-bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens, bool reversed)
+bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens, print_tasks_opt opts)
 {
 
     String_View sv = {0};
@@ -443,11 +445,9 @@ bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens, bool reversed)
     if (!list) return_defer(false);
 
     if (tokens->count == 1) {
-        for (char *c = tokens->items[0]; *c != '\0'; ++c) {
-            if (*c == ' ') {
-                name_filtering = true;
-                break;
-            }
+        String_View token = sv_from_cstr(tokens->items[0]);
+        if (!sv_starts_with(token, SVLIT("."))) {
+            name_filtering = true;
         }
     }
 
@@ -506,8 +506,14 @@ bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens, bool reversed)
         for (u32 i = 0; i < n; ++i)
             ordered[i] = *list[i];
 
-        if (reversed) qsort(ordered, n, sizeof(task_t), cmp_tasks_rev_void);
-        else qsort(ordered, n, sizeof(task_t), cmp_tasks_void);
+        // TASK(20260824-192224): allow displaying and sorting task by their huid
+        if (opts.byHUID) {
+            if (opts.reversed) qsort(ordered, n, sizeof(task_t), cmp_tasks_by_huid_reversed_void);
+            else qsort(ordered, n, sizeof(task_t), cmp_tasks_by_huid_void);
+        } else {
+            if (opts.reversed) qsort(ordered, n, sizeof(task_t), cmp_tasks_rev_void);
+            else qsort(ordered, n, sizeof(task_t), cmp_tasks_void);
+        }
 
         size_t alignment = find_best_alignment(ordered, n);
 

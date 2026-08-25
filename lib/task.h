@@ -33,7 +33,7 @@ void print_task(FILE *stream, task_t *task, int alignment);
 bool parse_task(const char *path, const char *uuid, task_t *task, tasks_t *tasks);
 bool remove_task(task_t *task);
 bool parse_tasks(const char *path, tasks_t *tasks, const task_t *parent, tasks_t *subtasks);
-bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens, bool reversed);
+bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens, print_tasks_opt opts);
 task_t *find_task(tasks_t *tasks, const char *uuid);
 bool remove_tasks(tasks_t *tasks, Flag_List_Mut *tasks_uuid);
 void init_directory(const char *tasks_dir, bool force_init);
