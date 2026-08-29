@@ -2,7 +2,7 @@
 
 - STATUS: CLOSED
 - PRIORITY: 60
-- TAGS: filters,internal-rework
+- TAGS: internal-rework,query-lang
 
 Previously, the system only revolved around filtering by name using strstr.
 Afterwards, it grew into using strstr for the status, tags and name.

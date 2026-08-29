@@ -2,7 +2,7 @@
 
 - STATUS: CLOSED
 - PRIORITY: 140
-- TAGS: internal-rework,filters,feature
+- TAGS: internal-rework,feature,query-lang
 
 Rather than continue with eval the query as you go approach, this task's goal is to rework the system in order to build an AST tree and build the result array while traversing the tree in, seemingly, the prefix order.
 

@@ -2,7 +2,7 @@
 
 - STATUS: CLOSED
 - PRIORITY: 69
-- TAGS: internal-rework,cmdline-options,filters
+- TAGS: internal-rework,cmdline-options,query-lang
 
 If the string given is empty/missing, print all tasks
 If the string given corresponds to the status, either CLOSED or OPEN, filter by such

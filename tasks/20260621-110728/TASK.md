@@ -2,7 +2,7 @@
 
 - STATUS: CLOSED
 - PRIORITY: 90
-- TAGS: filters,internal-rework
+- TAGS: internal-rework,query-lang
 
 User should be able to call this program as such:
 

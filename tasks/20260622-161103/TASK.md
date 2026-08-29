@@ -2,7 +2,7 @@
 
 - STATUS: CLOSED
 - PRIORITY: 20
-- TAGS: filters,internal-rework
+- TAGS: internal-rework,query-lang
 
 # Currently
 we have:

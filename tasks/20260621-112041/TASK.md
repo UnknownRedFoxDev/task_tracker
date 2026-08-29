@@ -2,7 +2,7 @@
 
 - STATUS: CLOSED
 - PRIORITY: 100
-- TAGS: internal-rework,filters
+- TAGS: internal-rework,query-lang
 
 As of right now, a task is composed as such:
 

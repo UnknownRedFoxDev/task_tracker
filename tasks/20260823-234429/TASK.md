@@ -1,7 +1,7 @@
 # Optimize NODE_AND eval_node() case when accumulating both results array
 
 - STATUS: OPEN
-- PRIORITY: 100
+- PRIORITY: 50
 - TAGS: optimize,internal-rework
 
 change the result to be a dynamic array such that:

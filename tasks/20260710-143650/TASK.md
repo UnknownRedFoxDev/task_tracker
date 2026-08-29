@@ -2,7 +2,7 @@
 
 - STATUS: CLOSED
 - PRIORITY: 100
-- TAGS: bug,filters
+- TAGS: bug,query-lang
 
 # Explaination
 OR and AND operator were not correctly taken into account because they were considered like filtering by name

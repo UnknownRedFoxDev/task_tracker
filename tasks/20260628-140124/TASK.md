@@ -1,8 +1,8 @@
-# Eval tag filter in a non-destructive way
+# Eval query in a non-destructive way
 
 - STATUS: CLOSED
 - PRIORITY: 120
-- TAGS: filters,internal-rework
+- TAGS: internal-rework,query-lang
 
 Say:
 

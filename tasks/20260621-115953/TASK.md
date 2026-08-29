@@ -2,7 +2,7 @@
 
 - STATUS: CLOSED
 - PRIORITY: 30
-- TAGS: filters,feature
+- TAGS: feature,query-lang
 
 Needed tasks:
 
