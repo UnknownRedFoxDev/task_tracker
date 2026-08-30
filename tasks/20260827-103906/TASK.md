@@ -2,5 +2,5 @@
 
 - STATUS: CLOSED
 - PRIORITY: 110
-- TAGS: 
+- TAGS: feature,debugging
 

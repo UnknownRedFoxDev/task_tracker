@@ -8,3 +8,4 @@ optimize: feature or code that needs to be optimized
 docs: where documentation needs to be done or updated
 neovim: for my own neovim installation
 compile: things that touches and runs at compile time (aka when `./nob` is ran)
+debugging: code that will help with debugging the tool

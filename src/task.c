@@ -430,7 +430,6 @@ bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens, print_tasks_opt op
     String_View sv = {0};
     String_Builder sb = {0};
     bool ignore_default = false;
-    bool all = false;
     bool name_filtering = false;
     bool result = true;
     Flag_List_Mut save = *tokens;
@@ -458,21 +457,14 @@ bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens, print_tasks_opt op
                 sb_appendf(&temp_sb, "%s ", tokens->items[i]);
             }
 
-            if (temp_sb.count > 0 && (strstr(temp_sb.items, ".all"))) {
-                all = true;
-                shift(tokens->items, tokens->count);
-            }
-
-            if (temp_sb.count > 0 && (strstr(temp_sb.items, ".CLOSED") || strstr(temp_sb.items, "not .OPEN") || !strstr(temp_sb.items, "."))) {
+            if (temp_sb.count > 0 && (strstr(temp_sb.items, ".CLOSED") || strstr(temp_sb.items, ".OPEN") || strstr(temp_sb.items, ".all"))) {
                 ignore_default = true;
             }
 
             free(temp_sb.items);
         }
 
-        if (all) {
-            sb_appendf(&sb, "(.OPEN or .CLOSED) ");
-        } else if (!ignore_default) {
+        if (!ignore_default) {
             sb_appendf(&sb, ".OPEN");
             if (tokens->count > 0) sb_appendf(&sb, " and ");
             if (tokens->count > 1) sb_appendf(&sb, "(");
@@ -482,7 +474,7 @@ bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens, print_tasks_opt op
             sb_appendf(&sb, "%s%s", tokens->items[i], (i == tokens->count -1)? "" : " ");
         }
 
-        if (!ignore_default && tokens->count > 1 && !all)
+        if (!ignore_default && tokens->count > 1)
             sb_appendf(&sb, ")");
 
         sb_append_null(&sb);

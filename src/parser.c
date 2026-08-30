@@ -155,6 +155,11 @@ Node_t *parse_elem(Parser *s)
 {
     if (match_token_and_advance(s, TOKEN_TAG)) {
         char *name = s->prev.string;
+        if (strcmp(name, "all") == 0) {
+            Node_t *open_node = create_tag_node("OPEN");
+            Node_t *closed_node = create_tag_node("CLOSED");
+            return create_or_node(open_node, closed_node);
+        }
         return create_tag_node(name);
     }
 
@@ -170,7 +175,8 @@ Node_t *parse_elem(Parser *s)
         return sub_nodes;
     }
 
-    UNREACHABLE("Either a tag or a '(' character were expected. None were supplied, what happend?");
+    report_query_error(s->l->src, s->l->cursor - s->l->curr_word_size + 1, "Either a tag or a '(' character were expected. Supplied: \"%s\" (type: %s)", s->curr.string, token_kind_to_cstr(s->curr.kind));
+    abort();
 }
 
 void __dump_ast(Node_t *node, size_t level)
@@ -180,16 +186,16 @@ void __dump_ast(Node_t *node, size_t level)
             for (size_t i = 0; i < level; ++i) {
                 printf(" ");
             }
-            printf("- TAG: %s\n", node->tag_name);
+            printf("TAG: %s\n", node->tag_name);
             break;
         }
         case NODE_NOT: {
             assert(node->lhs != NULL && "A not-node's LHS should not be NULL");
-            __dump_ast(node->lhs, level);
-            for (size_t i = 0; i < level + 2; ++i) {
+            for (size_t i = 0; i < level; ++i) {
                 printf(" ");
             }
-            printf("- UNARY: NOT\n");
+            printf("NEGATED: \n");
+            __dump_ast(node->lhs, level + 2);
             break;
         }
         case NODE_AND: {
@@ -198,8 +204,16 @@ void __dump_ast(Node_t *node, size_t level)
             for (size_t i = 0; i < level; ++i) {
                 printf(" ");
             }
-            printf("- BOOLEAN: AND\n");
+            printf("BOOLEAN: AND\n");
+            for (size_t i = 0; i < level + 2; ++i) {
+                printf(" ");
+            }
+            printf("LHS: \n");
             __dump_ast(node->lhs, level+4);
+            for (size_t i = 0; i < level + 2; ++i) {
+                printf(" ");
+            }
+            printf("RHS: \n");
             __dump_ast(node->rhs, level+4);
             break;
         }
@@ -209,8 +223,16 @@ void __dump_ast(Node_t *node, size_t level)
             for (size_t i = 0; i < level; ++i) {
                 printf(" ");
             }
-            printf("- BOOLEAN: OR\n");
+            printf("BOOLEAN: OR\n");
+            for (size_t i = 0; i < level + 2; ++i) {
+                printf(" ");
+            }
+            printf("LHS: \n");
             __dump_ast(node->lhs, level+4);
+            for (size_t i = 0; i < level + 2; ++i) {
+                printf(" ");
+            }
+            printf("RHS: \n");
             __dump_ast(node->rhs, level+4);
             break;
         }
