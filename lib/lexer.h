@@ -24,12 +24,14 @@ typedef struct {
 
 typedef struct {
     char *src;
+    size_t curr_word_size;
     size_t cursor;
 } Lexer;
 
 // ------ Lexer
 Lexer *init_lexer(const char *query);
 void clean_lexer(Lexer **l);
+void report_query_error(const char *src, int cursor, const char *format, ...) NOB_PRINTF_FORMAT(3, 4);
 
 // Character parsing
 bool is_special_char(char c);

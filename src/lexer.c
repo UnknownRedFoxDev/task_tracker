@@ -32,6 +32,20 @@ Lexer *init_lexer(const char *query)
     return l;
 }
 
+// Credits to Tsoding: https://youtu.be/eGvUK-3RmDs?t=1504
+void report_query_error(const char *src, int cursor, const char *format, ...) NOB_PRINTF_FORMAT(3, 4);
+void report_query_error(const char *src, int cursor, const char *format, ...)
+{
+    fprintf(stderr, "%s\n", src);
+    fprintf(stderr, "%*s\n", cursor, "^");
+    fprintf(stderr, "ERROR: ");
+    va_list args;
+    va_start(args, format);
+    vfprintf(stderr, format, args);
+    va_end(args);
+}
+
+
 Token_t next_token(Lexer *l)
 {
     while (true) {
@@ -42,10 +56,12 @@ Token_t next_token(Lexer *l)
             return (Token_t){.kind = TOKEN_EOF}; // End of the query string
         case '(': {
             advance(l);
+            l->curr_word_size = 1;
             return (Token_t){.kind = TOKEN_LPAREN};
         }
         case ')': {
             advance(l);
+            l->curr_word_size = 1;
             return (Token_t){.kind = TOKEN_RPAREN};
         }
         case '.': {
@@ -62,6 +78,7 @@ Token_t next_token(Lexer *l)
                     break;
                 }
             }
+            l->curr_word_size = i;
             return (Token_t){.kind = TOKEN_TAG, .string = strdup(tag_name)};
         }
         case ' ':
@@ -70,7 +87,7 @@ Token_t next_token(Lexer *l)
         default: { // "and"/"or"/"not" keywords processing
             char keyword[KEYWORD_MAX_SIZE] = {0};
             size_t i = 0;
-            while (true) {
+            while (i < KEYWORD_MAX_SIZE) {
                 c = peek(l);
                 if (!is_special_char(c)) {
                     advance(l);
@@ -80,6 +97,7 @@ Token_t next_token(Lexer *l)
                 }
             }
 
+            l->curr_word_size = i;
             if (strcmp(keyword, "not") == 0) {
                 return (Token_t){.kind = TOKEN_NOT};
             } else if (strcmp(keyword, "and") == 0) {
@@ -87,7 +105,8 @@ Token_t next_token(Lexer *l)
             } else if (strcmp(keyword, "or") == 0) {
                 return (Token_t){.kind = TOKEN_OR};
             } else {
-                return (Token_t){.kind = TOKEN_UNK, .string = strdup(keyword)};
+                report_query_error(l->src, l->cursor - i + 1, "unknown token found");
+                abort();
             }
         }
         }
