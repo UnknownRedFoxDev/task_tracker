@@ -337,6 +337,10 @@ char *find_tasks_dir(const char *cwd)
 void print_tool_version(const char *program_name)
 {
     nob_log(INFO, "%s - Task Tracker implemented by UnknownRedFoxDev", program_name);
+#ifndef GIT_HASH
+    nob_log(WARNING, "Git version is not defined. Please recompile the latest version.");
+#else
     nob_log(INFO, "Git version: %s", GIT_HASH);
+#endif // GIT_HASH
 }
 
