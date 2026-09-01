@@ -7,6 +7,7 @@
 #define LIBPATH         BUILD_DIR"modules.a"
 #define EXECUTABLE_NAME "tatr"
 #define EXECUTABLE_PATH BIN_DIR EXECUTABLE_NAME
+#define GIT_HASH_HEADER BIN_DIR "git_hash.h"
 
 bool debug = false;
 
@@ -39,12 +40,14 @@ void compile_command(Nob_Cmd *cmd, const char *input_path, const char *output_pa
 {
     add_standard_flags(cmd);
     cmd_append(cmd, "-o", output_path);
-    if (!linking) cmd_append(cmd, "-c", input_path);
-    else {
+    if (!linking) {
+        cmd_append(cmd, "-c", input_path);
+    } else {
         cmd_append(cmd, input_path);
         if (file_exists(LIBPATH))
             cmd_append(cmd, LIBPATH);
     }
+    cmd_append(cmd, "-I"BIN_DIR);
 }
 
 bool compile_submodules(submodules *modules, bool *needs_recompile)
@@ -132,6 +135,30 @@ void parse_flag(int argc, char **argv, bool *help, bool *rebuild, Flag_List *run
     }
 }
 
+void generate_git_hash()
+{
+    Cmd cmd = {0};
+    cmd_append(&cmd, "git", "rev-parse", "HEAD");
+    if (!cmd_run(&cmd, .stdout_path = BIN_DIR "git_hash.txt")) return ;
+
+    String_Builder git_hash = {0};
+    if (!read_entire_file(BIN_DIR "git_hash.txt", &git_hash)) return ;
+    while (isspace(git_hash.items[git_hash.count-1])) {
+        git_hash.count -= 1;
+    }
+    sb_append_null(&git_hash);
+
+    String_Builder sb = {0};
+    sb_appendf(&sb, "#ifndef GIT_HASH_H\n");
+    sb_appendf(&sb, "#define GIT_HASH_H\n");
+    sb_appendf(&sb, "#define GIT_HASH \"%s\"\n", git_hash.items);
+    sb_appendf(&sb, "#endif // GIT_HASH_H\n");
+
+    if (!write_entire_file(GIT_HASH_HEADER, sb.items, sb.count)) return ;
+    sb_free(git_hash);
+    sb_free(sb);
+}
+
 void initialise_directories()
 {
     if (file_exists(BUILD_DIR)) {
@@ -163,6 +190,7 @@ int main(int argc, char **argv)
     da_append(&modules, "parser");
 
     if (rebuild || !file_exists(BIN_DIR)) initialise_directories();
+    if (rebuild || !file_exists(GIT_HASH_HEADER)) generate_git_hash();
     if (!nobuild && !compile_submodules(&modules, &needs_recompile)) return_defer(1);
     if (!nobuild && !compile_main(&cmd, needs_recompile)) return_defer(1);
 

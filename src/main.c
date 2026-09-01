@@ -8,7 +8,8 @@ int main(int argc, char **argv)
 {
     cmdline_opts_t opts = {0};
     tasks_t tasks = {0};
-    int result = 0; parse_options(argc, argv, &opts);
+    char *program_name = NULL;
+    int result = 0; parse_options(argc, argv, &opts, &program_name);
 
     const char *cwd = get_current_dir_temp();
     char *tasks_dir = find_tasks_dir(cwd);
@@ -28,6 +29,9 @@ int main(int argc, char **argv)
 
     if (opts.list_tasks || opts.list_tasks_reversed) {
         print_tasks(&tasks, &opts.filters, opts.print_tasks_opts);
+    }
+    else if (opts.version) {
+        print_tool_version(program_name);
     }
     else if (opts.create_task) {
         task_t *task = create_task(tasks_dir, opts.create_task, opts.no_editor);

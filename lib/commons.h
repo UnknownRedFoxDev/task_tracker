@@ -68,6 +68,7 @@ typedef struct {
 
 typedef struct cmdline_opts_s {
     bool  help;
+    bool  version;
     bool  list_tasks;
     bool  list_tasks_reversed;
     bool  remove_tasks;

@@ -1,6 +1,6 @@
 # Create a cmdline-option for the version of the tooling
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 30
 - TAGS: cmdline-options,feature
 

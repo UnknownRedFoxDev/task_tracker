@@ -8,6 +8,9 @@ void usage(FILE *stream)
     fprintf(stream, "    help\n");
     fprintf(stream, "      Lists this help message\n");
     fprintf(stream, "\n");
+    fprintf(stream, "    version\n");
+    fprintf(stream, "      Prints the git hash of the tooling\n");
+    fprintf(stream, "\n");
     fprintf(stream, "    ls\n");
     fprintf(stream, "      Lists all tasks. Filters as strings can be passed to filter tasks by name, status and tags\n");
     fprintf(stream, "      Filtering by tag and by name are mutually exclusive\n");
@@ -50,7 +53,7 @@ void usage(FILE *stream)
     fprintf(stream, "      Initialize the tasks/ directory used by tatr, 'y' may be given to force creation\n");
 }
 
-void parse_options(int argc, char **argv, cmdline_opts_t *opts)
+void parse_options(int argc, char **argv, cmdline_opts_t *opts, char **program_name)
 {
     // Just calling the program
     if (argc < 2) {
@@ -58,8 +61,7 @@ void parse_options(int argc, char **argv, cmdline_opts_t *opts)
         return ;
     }
 
-    char *program_name = shift(argv, argc);
-    UNUSED(program_name);
+    (*program_name) = shift(argv, argc);
 
     while (argc) {
         char *flag = shift(argv, argc);
@@ -68,6 +70,9 @@ void parse_options(int argc, char **argv, cmdline_opts_t *opts)
             break;
         } else if (strcmp(flag, "summary") == 0 || strcmp(flag, "sum") == 0) {
             opts->summary = true;
+            break;
+        } else if (strcmp(flag, "version") == 0) {
+            opts->version = true;
             break;
         } else if (strcmp(flag, "new") == 0) {
             opts->create_task = calloc(1, sizeof(task_info_t));
@@ -174,7 +179,6 @@ void parse_options(int argc, char **argv, cmdline_opts_t *opts)
             }
             break;
         }
-
     }
 
     if (argc) {
@@ -329,3 +333,10 @@ char *find_tasks_dir(const char *cwd)
         return strdup(result);
     return result;
 }
+
+void print_tool_version(const char *program_name)
+{
+    nob_log(INFO, "%s - Task Tracker implemented by UnknownRedFoxDev", program_name);
+    nob_log(INFO, "Git version: %s", GIT_HASH);
+}
+
