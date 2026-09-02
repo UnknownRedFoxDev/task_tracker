@@ -190,7 +190,7 @@ int main(int argc, char **argv)
     da_append(&modules, "parser");
 
     if (rebuild || !file_exists(BIN_DIR)) initialise_directories();
-    if (rebuild || !file_exists(GIT_HASH_HEADER)) generate_git_hash();
+    if (rebuild || debug || !file_exists(GIT_HASH_HEADER)) generate_git_hash();
     if (!nobuild && !compile_submodules(&modules, &needs_recompile)) return_defer(1);
     if (!nobuild && !compile_main(&cmd, needs_recompile)) return_defer(1);
 

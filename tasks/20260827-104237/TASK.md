@@ -1,7 +1,7 @@
 # Create and parse a 'tags.md' file at the root inside tasks/
 
-- STATUS: OPEN
-- PRIORITY: 40
+- STATUS: CLOSED
+- PRIORITY: 90
 - TAGS: feature
 
 This tags.md file should allow the tooling to give a descriptions for tags

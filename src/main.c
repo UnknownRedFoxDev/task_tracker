@@ -26,7 +26,6 @@ int main(int argc, char **argv)
     initialise_tasks();
     if (!parse_tasks(tasks_dir, &tasks, NULL, NULL)) return_defer(1);
 
-
     if (opts.list_tasks || opts.list_tasks_reversed) {
         print_tasks(&tasks, &opts.filters, opts.print_tasks_opts);
     }
@@ -41,7 +40,7 @@ int main(int argc, char **argv)
         free_task(task);
     }
     else if (opts.summary) {
-        task_summary();
+        task_summary(tasks_dir);
     }
     else if (opts.cat_task) {
         task_t *task = find_task(&tasks, opts.cat_task);

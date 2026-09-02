@@ -6,6 +6,7 @@
 #include "../lib/helper.h"
 #include "../lib/parser.h"
 
+static tags_t __g_tags = {0};
 static Ht(const char*, int) __g_stats = { .hasheq = ht_cstr_hasheq };
 
 task_t *find_task(tasks_t *tasks, const char *uuid)
@@ -159,15 +160,16 @@ int cmp_keyval_void(const void *t1, const void *t2)
     return cmp_keyval((const struct keyval *)t1, (const struct keyval *)t2);
 }
 
-void task_summary()
+void task_summary(const char *tasks_dir)
 {
+    parse_tags(tasks_dir);
+
     nob_log(INFO, "Summary of tasks:");
     printf("OPEN:     %2d\n", *ht_find(&__g_stats, "OPEN"));
     printf("CLOSED:   %2d\n", *ht_find(&__g_stats, "CLOSED"));
     printf("TOTAL:    %2d\n", *ht_find(&__g_stats, "TOTAL"));
     printf("UNTAGGED: %2d\n", *ht_find(&__g_stats, "UNTAGGED"));
     printf("TAGGED:\n");
-
     int longest_tag_name = 0;
 
     ht_foreach(value, &__g_stats) {
@@ -191,8 +193,20 @@ void task_summary()
     qsort(ordered_list, __g_stats.count, sizeof(struct keyval), cmp_keyval_void);
 
     for (u64 i = 0; i < ite; ++i) {
-        printf("    %*s => %d\n", longest_tag_name, ordered_list[i].key, ordered_list[i].value);
+        const char *desc = NULL;
+        da_foreach (tag_t, tag, &__g_tags) {
+            if (strcmp(tag->name, ordered_list[i].key) == 0) {
+                desc = tag->description;
+            }
+        }
+        printf("    %*s => %-3d", longest_tag_name, ordered_list[i].key, ordered_list[i].value);
+        if (desc != NULL) {
+            printf(" - %s", desc);
+        }
+        printf("\n");
     }
+
+    free_tags(&__g_tags);
 }
 
 struct task_distance {
@@ -715,16 +729,16 @@ defer:
 
 bool parse_tasks(const char *path, tasks_t *tasks, const task_t *parent, tasks_t *subtasks)
 {
-    File_Paths tasks_uuid = {0};
-    read_entire_dir(path, &tasks_uuid);
+    File_Paths tasks_dirs = {0};
+    read_entire_dir(path, &tasks_dirs);
 
-    da_foreach (const char *, uuid, &tasks_uuid) {
-        const char *full_path = temp_sprintf("%s/%s", path, *uuid);
+    da_foreach (const char *, dirs, &tasks_dirs) {
+        const char *full_path = temp_sprintf("%s/%s", path, *dirs);
         Nob_File_Type ft = nob_get_file_type(full_path);
         if (ft == NOB_FILE_DIRECTORY) {
-            if (!sv_starts_with(sv_from_cstr(*uuid), sv_from_cstr("."))) {
+            if (!sv_starts_with(sv_from_cstr(*dirs), sv_from_cstr(".")) && strcmp(*dirs, "tags.md")) {
                     task_t task = {0};
-                    parse_task(path, *uuid, &task, tasks);
+                    parse_task(path, *dirs, &task, tasks);
                     da_append(tasks, task);
 
                 if (parent != NULL && subtasks != NULL) {
@@ -735,7 +749,7 @@ bool parse_tasks(const char *path, tasks_t *tasks, const task_t *parent, tasks_t
         }
     }
 
-    free(tasks_uuid.items);
+    free(tasks_dirs.items);
     return true;
 }
 
@@ -1037,6 +1051,51 @@ defer:
         return result;
     }
     return false;
+}
+
+void parse_tags(const char *tasks_path)
+{
+    const char *tags_path = temp_sprintf("%s/tags.md", tasks_path);
+    if (!file_exists(tags_path)) {
+        // Silently exit, not every user would have a tags.md to describe there tags
+        return ;
+    }
+
+    // File structure:
+    // <tag>: <description>
+    String_Builder sb = {0};
+    if (!read_entire_file(tags_path, &sb)) return ;
+
+    String_View sv = sb_to_sv(sb);
+    while (sv.count > 0) {
+        String_View line = sv_chop_by_delim(&sv, '\n');
+        String_View tag_sv = sv_chop_by_delim(&line, ' ');
+        sv_chop_right(&tag_sv, 1); // remove the ':'
+
+        tag_t tag = {
+            .name = sv_to_cstr(tag_sv),
+            .description = sv_to_cstr(line)
+        };
+
+        da_append(&__g_tags, tag);
+    }
+}
+
+void free_tag(tag_t *tag)
+{
+    free(tag->description);
+    tag->description = NULL;
+    free(tag->name);
+    tag->name = NULL;
+}
+
+void free_tags(tags_t *tags)
+{
+    da_foreach (tag_t, tag, tags) {
+        free_tag(tag);
+    }
+
+    free(tags->items);
 }
 
 /*

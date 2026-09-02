@@ -2,7 +2,7 @@
 
 - STATUS: CLOSED
 - PRIORITY: 100
-- TAGS: cmdline-options,internal-rework,bug
+- TAGS: internal-rework,bug
 
 Rather than doing:
 
