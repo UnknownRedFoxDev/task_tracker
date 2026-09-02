@@ -8,6 +8,9 @@ tatr \- a task tracker tooling to keep track of your tasks
 .B help
 .br
 .B tatr
+.B version
+.br
+.B tatr
 .B init
 .RI [\| y \|]
 .br
@@ -98,13 +101,17 @@ This is only my implementation of it, with added features, and adjusted to my li
 .br
 Shows the help message similar to this one.
 .TP
-.BI tatr\ init
+.BI tatr\ version
+.br
+Prints the version of the utility, the current git-hash baked into the executable when it was last compiled.
+.TP
+.BI tatr\ init \ [y]
 .br
 Initialises the
 .I cwd
 with a
 .RI \|"tasks/"\|
-directory, it does not yet exists.
+directory, it does not yet exists. Adding "y" as an option forces the creation of the directory.
 .TP
 .BI tatr\ find \ <task-id>
 .br

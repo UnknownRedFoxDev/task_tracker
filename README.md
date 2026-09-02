@@ -31,6 +31,7 @@ The default behavior is to list every opened task available in their order of pr
 List of feature available:
 
 `./tatr help`: See help message for more information  
+`./tatr version`: Displays relevent version information about the utility  
 `./tatr init [y]`: Initialize the tasks/ directory used by tatr, 'y' may be given to force creation  
 `./tatr edit <task-id>`: Opens in your $EDITOR (or default to vim) the task  
 `./tatr find <task-id>`: Finds and prints the task for quick access  
