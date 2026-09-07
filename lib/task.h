@@ -23,7 +23,7 @@ typedef struct task_t {
     char *path;
     char *uuid;
     char *name;
-    size_t priority;
+    long priority;
     task_status status;
     Ht(const char *, bool) tags;
     tasks_t *subtasks;

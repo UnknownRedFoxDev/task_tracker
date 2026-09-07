@@ -352,6 +352,15 @@ u32 eval_tag(const tasks_t *tasks, task_t **result, char *tag, bool negated)
     return result_ite;
 }
 
+#define case_compare(node_kind, op, tasks, result, result_ite) \
+    case (node_kind): { \
+        da_foreach (task_t, task, tasks) { \
+            if (task->priority op) { \
+                result[result_ite++] = task; \
+            } \
+        } \
+    } break
+
 u32 eval_node(const tasks_t *tasks, Node_t *root, bool negated, task_t **result)
 {
     tag_set ht_tasks_set = { .hasheq = ht_cstr_hasheq };
@@ -429,6 +438,10 @@ u32 eval_node(const tasks_t *tasks, Node_t *root, bool negated, task_t **result)
 
         break;
     }
+    case_compare(NODE_LT,  <  root->rhs->as.integer, tasks, result, result_ite);
+    case_compare(NODE_LTE, <= root->rhs->as.integer, tasks, result, result_ite);
+    case_compare(NODE_GT,  >  root->rhs->as.integer, tasks, result, result_ite);
+    case_compare(NODE_GTE, <= root->rhs->as.integer, tasks, result, result_ite);
     default:
         UNREACHABLE("Node_Kind");
     }

@@ -1,6 +1,6 @@
 # Allow query to filter the priorities
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 130
 - TAGS: internal-rework,query-lang
 

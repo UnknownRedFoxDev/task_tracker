@@ -422,6 +422,8 @@ void clean_ast(Node_t *node)
         free(node->as.tag_name);
         node->as.tag_name = NULL;
         free(node);
+    } else if (node->kind == NODE_INT) {
+        free(node);
     } else {
         clean_ast(node->lhs);
         clean_ast(node->rhs);
