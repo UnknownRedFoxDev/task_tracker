@@ -358,7 +358,7 @@ u32 eval_node(const tasks_t *tasks, Node_t *root, bool negated, task_t **result)
     u32 result_ite = 0;
     switch (root->kind) {
     case NODE_TAG: {
-        result_ite = eval_tag(tasks, result, root->tag_name, negated);
+        result_ite = eval_tag(tasks, result, root->as.tag_name, negated);
         break;
     }
     case NODE_NOT: {
@@ -457,12 +457,12 @@ bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens, print_tasks_opt op
     list = calloc(tasks->count, sizeof(task_t *));
     if (!list) return_defer(false);
 
-    if (tokens->count == 1) {
-        String_View token = sv_from_cstr(tokens->items[0]);
-        if (!sv_starts_with(token, SVLIT("."))) {
-            name_filtering = true;
-        }
-    }
+    // if (tokens->count == 1) {
+    //     String_View token = sv_from_cstr(tokens->items[0]);
+    //     if (!sv_starts_with(token, SVLIT("."))) {
+    //         name_filtering = true;
+    //     }
+    // }
 
     if (!name_filtering) {
         {
@@ -470,8 +470,10 @@ bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens, print_tasks_opt op
             for (u64 i = 0; i < tokens->count; ++i) {
                 sb_appendf(&temp_sb, "%s ", tokens->items[i]);
             }
+            sb_append_null(&temp_sb);
 
-            if (temp_sb.count > 0 && (strstr(temp_sb.items, ".CLOSED") || strstr(temp_sb.items, ".OPEN") || strstr(temp_sb.items, ".all"))) {
+            if (temp_sb.count > 0 && (strstr(temp_sb.items, ".CLOSED")
+                || strstr(temp_sb.items, ".OPEN") || strstr(temp_sb.items, ".all"))) {
                 ignore_default = true;
             }
 

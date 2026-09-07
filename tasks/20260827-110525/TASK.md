@@ -23,6 +23,7 @@ Flags could be set such that min-eq and max-eq when doing lte (lesser than or eq
 e.g.
 
 #### example 1
+> tatr ls priority lt 100 and priority gt 30
 min = 30  ; min-eq = false
 max = 100 ; max-eq = false
 
@@ -30,6 +31,7 @@ range = (30, 100)
 Include tasks with priority between: 31; 99
 
 #### example 2
+> tatr ls priority lte 95 and priority gt 12
 min = 12 ; min-eq = false
 max = 95 ; max-eq = true
 
@@ -37,6 +39,7 @@ range = (12, 95]
 Include tasks with priority between: 13; 95
 
 #### example 3
+> tatr ls priority lt 90 and priority gte 65
 min = 65 ; min-eq = true
 max = 90 ; max-eq = false
 
@@ -44,8 +47,14 @@ range = [65, 90)
 Include tasks with priority between: 65; 89
 
 #### example 4
+> tatr ls priority lte 70 and priority gte 60
 min = 60 ; min-eq = true
 max = 70 ; max-eq = true
 
 range = [60, 70]
 Include tasks with priority between: 60; 70
+
+# Precedence
+
+less than (lt), less than or equal (lte), greater than (gt), greater than or equal (gte) have all the same precedence
+so put all of them in the same function just compare the string

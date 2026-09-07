@@ -1,4 +1,5 @@
 #include "../lib/lexer.h"
+#include <ctype.h>
 
 char peek(Lexer *l)
 {
@@ -79,7 +80,7 @@ Token_t next_token(Lexer *l)
                 }
             }
             l->curr_word_size = i;
-            return (Token_t){.kind = TOKEN_TAG, .string = strdup(tag_name)};
+            return (Token_t){.kind = TOKEN_TAG, .as = { .string = strdup(tag_name) }};
         }
         case ' ':
             advance(l);
@@ -104,11 +105,26 @@ Token_t next_token(Lexer *l)
                 return (Token_t){.kind = TOKEN_AND};
             } else if (strcmp(keyword, "or") == 0) {
                 return (Token_t){.kind = TOKEN_OR};
-            } else {
-                report_query_error(l->src, l->cursor - i + 1, "unknown token found");
-                abort();
+            } else if (strcmp(keyword, "priority") == 0) {
+                return (Token_t){.kind = TOKEN_PRIORITY};
+            } else if (strcmp(keyword, "lte") == 0) {
+                return (Token_t){.kind = TOKEN_LTE};
+            } else if (strcmp(keyword, "gte") == 0) {
+                return (Token_t){.kind = TOKEN_GTE};
+            } else if (strcmp(keyword, "gt") == 0) {
+                return (Token_t){.kind = TOKEN_GT};
+            } else if (strcmp(keyword, "lt") == 0) {
+                return (Token_t){.kind = TOKEN_LT};
             }
-        }
+            char *endptr = NULL;
+            long integer = strtol(keyword, &endptr, 10);
+            if (keyword != endptr) {
+                return (Token_t){.kind = TOKEN_INT, .as = { .integer = integer }};
+            }
+
+            report_query_error(l->src, l->cursor - i + 1, "unknown token found");
+            abort();
+            }
         }
     }
     UNREACHABLE("next_token");
@@ -118,8 +134,12 @@ void dump_token(Token_t t)
 {
     switch(t.kind) {
     case TOKEN_TAG: {
-        assert(t.string != NULL && "Tag's name is somehow invalid");
-        nob_log(NOB_INFO, "type: Tag, name: %s", t.string);
+        assert(t.as.string != NULL && "Tag's name is somehow invalid");
+        nob_log(NOB_INFO, "type: Tag, name: %s", t.as.string);
+        break;
+    }
+    case TOKEN_INT: {
+        nob_log(NOB_INFO, "type: Tag, name: %ld", t.as.integer);
         break;
     }
     case TOKEN_NOT: {
@@ -134,9 +154,37 @@ void dump_token(Token_t t)
         nob_log(NOB_INFO, "type: Or");
         break;
     }
+    case TOKEN_LPAREN: {
+        nob_log(NOB_INFO, "type: Left Parenthesis");
+        break;
+    }
+    case TOKEN_RPAREN: {
+        nob_log(NOB_INFO, "type: Right Parenthesis");
+        break;
+    }
+    case TOKEN_LT: {
+        nob_log(NOB_INFO, "type: Less than");
+        break;
+    }
+    case TOKEN_LTE: {
+        nob_log(NOB_INFO, "type: Less than or equal");
+        break;
+    }
+    case TOKEN_GT: {
+        nob_log(NOB_INFO, "type: Greater than");
+        break;
+    }
+    case TOKEN_GTE: {
+        nob_log(NOB_INFO, "type: Greater than or equal");
+        break;
+    }
+    case TOKEN_PRIORITY: {
+        nob_log(NOB_INFO, "type: Priority");
+        break;
+    }
     case TOKEN_UNK: {
-        assert(t.string != NULL && "Unknown keyword with invalid string, how swell");
-        nob_log(NOB_INFO, "type: Unknown, string: %s", t.string);
+        assert(t.as.string != NULL && "Unknown keyword with invalid string, how swell");
+        nob_log(NOB_INFO, "type: Unknown, string: %s", t.as.string);
         break;
     }
     default:

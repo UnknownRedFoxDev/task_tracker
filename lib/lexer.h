@@ -3,23 +3,32 @@
 
 #include "commons.h"
 #define TAG_NAME_SIZE 1024
-#define KEYWORD_MAX_SIZE 4
+#define KEYWORD_MAX_SIZE 32
 
 typedef enum {
     TOKEN_UNK,
-    TOKEN_DOT,    // .
-    TOKEN_TAG,    // <tag>
-    TOKEN_AND,    // and
-    TOKEN_OR,     // or
-    TOKEN_NOT,    // not
-    TOKEN_LPAREN, // (
-    TOKEN_RPAREN, // )
+    TOKEN_DOT,      // .
+    TOKEN_TAG,      // <tag>
+    TOKEN_INT,      // <int>
+    TOKEN_AND,      // and
+    TOKEN_OR,       // or
+    TOKEN_NOT,      // not
+    TOKEN_PRIORITY, // priority
+    TOKEN_LT,       // lt
+    TOKEN_GT,       // gt
+    TOKEN_LTE,      // lte
+    TOKEN_GTE,      // gte
+    TOKEN_LPAREN,   // (
+    TOKEN_RPAREN,   // )
     TOKEN_EOF,
 } Token_Kind;
 
 typedef struct {
     Token_Kind kind;
-    char *string;
+    union {
+        char *string;
+        long integer;
+    } as;
 } Token_t;
 
 typedef struct {

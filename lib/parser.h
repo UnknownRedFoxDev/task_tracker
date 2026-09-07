@@ -8,13 +8,22 @@ typedef enum {
     NODE_AND,
     NODE_OR,
     NODE_NOT,
+    NODE_PRIORITY,
+    NODE_INT,
+    NODE_LT,
+    NODE_GT,
+    NODE_LTE,
+    NODE_GTE,
 } Node_Kind;
 
 typedef struct Node_s Node_t;
 struct Node_s {
     Node_Kind kind;
     union {
-        char *tag_name;
+        union {
+            char *tag_name;
+            long integer;
+        } as;
         struct {
             Node_t *lhs;
             Node_t *rhs;
@@ -51,6 +60,7 @@ void consume_token(Parser *s, Token_Kind expected_kind);
 Node_t *parse_query(Parser *s);
 Node_t *parse_expr(Parser *s);
 Node_t *parse_and(Parser *s);
+Node_t *parse_compare(Parser *s);
 Node_t *parse_not(Parser *s);
 Node_t *parse_elem(Parser *s);
 // ---------------------
