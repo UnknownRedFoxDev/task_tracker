@@ -4,7 +4,6 @@
 #define HT_IMPLEMENTATION
 #include "../lib/task.h"
 #include "../lib/helper.h"
-#include "../lib/parser.h"
 
 static tags_t __g_tags = {0};
 static Ht(const char*, int) __g_stats = { .hasheq = ht_cstr_hasheq };
@@ -268,7 +267,7 @@ char *str_to_lower(const char *cstr)
 }
 
 
-u32 filter_by_name(const tasks_t *tasks, String_View name, task_t **result)
+u32 retrieve_tasks_from_name(const tasks_t *tasks, String_View name, task_t **result)
 {
     nob_log(NOB_DEBUG, "Starting filtering by name");
 
@@ -328,9 +327,6 @@ size_t find_best_alignment(task_t *tasks, u32 tasks_len)
     return alignment;
 }
 
-
-typedef Ht(char *, task_t *) tag_set;
-
 u32 eval_tag(const tasks_t *tasks, task_t **result, char *tag, bool negated)
 {
     memset(result, 0, tasks->count * sizeof(task_t *));
@@ -361,7 +357,7 @@ u32 eval_tag(const tasks_t *tasks, task_t **result, char *tag, bool negated)
         } \
     } break
 
-u32 eval_node(const tasks_t *tasks, Node_t *root, bool negated, task_t **result)
+u32 retrieve_tasks_from_query(const tasks_t *tasks, Node_t *root, bool negated, task_t **result)
 {
     tag_set ht_tasks_set = { .hasheq = ht_cstr_hasheq };
     u32 result_ite = 0;
@@ -372,7 +368,7 @@ u32 eval_node(const tasks_t *tasks, Node_t *root, bool negated, task_t **result)
     }
     case NODE_NOT: {
         assert(root->lhs && "not-node's lhs should not be NULL");
-        result_ite = eval_node(tasks, root->lhs, true, result);
+        result_ite = retrieve_tasks_from_query(tasks, root->lhs, true, result);
         break;
     }
     case NODE_AND: {
@@ -385,10 +381,10 @@ u32 eval_node(const tasks_t *tasks, Node_t *root, bool negated, task_t **result)
 
         u32 lhs_ite = 0;
         u32 rhs_ite = 0;
-        lhs_ite = eval_node(tasks, root->lhs, negated, lhs_result);
+        lhs_ite = retrieve_tasks_from_query(tasks, root->lhs, negated, lhs_result);
 
         assert(root->lhs && "and-node's rhs should not be NULL");
-        rhs_ite = eval_node(tasks, root->rhs, negated, result);
+        rhs_ite = retrieve_tasks_from_query(tasks, root->rhs, negated, result);
 
         // TASK(20260823-234429): Optimize NODE_AND eval_node() case when accumulating both results array
         for (u32 i = 0; i < lhs_ite; ++i) {
@@ -415,14 +411,14 @@ u32 eval_node(const tasks_t *tasks, Node_t *root, bool negated, task_t **result)
     }
     case NODE_OR: {
         assert(root->lhs && "and-node's lhs should not be NULL");
-        result_ite = eval_node(tasks, root->lhs, negated, result);
+        result_ite = retrieve_tasks_from_query(tasks, root->lhs, negated, result);
         for (u32 i = 0; i < result_ite; ++i) {
             *ht_find_or_put(&ht_tasks_set, result[i]->uuid) = result[i];
         }
 
         assert(root->lhs && "and-node's rhs should not be NULL");
         memset(result, 0, result_ite * sizeof(task_t *));
-        result_ite = eval_node(tasks, root->rhs, negated, result);
+        result_ite = retrieve_tasks_from_query(tasks, root->rhs, negated, result);
         for (u32 i = 0; i < result_ite; ++i) {
             *ht_find_or_put(&ht_tasks_set, result[i]->uuid) = result[i];
         }
@@ -449,6 +445,17 @@ u32 eval_node(const tasks_t *tasks, Node_t *root, bool negated, task_t **result)
     return result_ite;
 }
 
+void args_to_query_string(String_Builder *dst, Flag_List_Mut *src)
+{
+    for (size_t i = 0; i < src->count; ++i) {
+        if (i != 0) {
+            sb_append_cstr(dst, " ");
+        }
+        sb_appendf(dst, "%s", src->items[i]);
+    }
+    sb_append_null(dst);
+}
+
 // pre-defined tags: .OPEN, .CLOSED, .UNTAGGED, .TAGGED (not .UNTAGGED)
 // by default: .OPEN
 bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens, print_tasks_opt opts)
@@ -461,7 +468,7 @@ bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens, print_tasks_opt op
     bool result = true;
     Flag_List_Mut save = *tokens;
     task_t *ordered = NULL;
-    u32 n = 0;
+    u32 task_count = 0;
     Lexer *l = NULL;
     Parser *s = NULL;
     Node_t *ast = NULL;
@@ -470,20 +477,19 @@ bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens, print_tasks_opt op
     list = calloc(tasks->count, sizeof(task_t *));
     if (!list) return_defer(false);
 
-    // if (tokens->count == 1) {
-    //     String_View token = sv_from_cstr(tokens->items[0]);
-    //     if (!sv_starts_with(token, SVLIT("."))) {
-    //         name_filtering = true;
-    //     }
-    // }
+    if (0) {
+        if (tokens->count == 1) {
+            String_View token = sv_from_cstr(tokens->items[0]);
+            if (!sv_starts_with(token, SVLIT("."))) {
+                name_filtering = true;
+            }
+        }
+    }
 
     if (!name_filtering) {
         {
             String_Builder temp_sb = {0};
-            for (u64 i = 0; i < tokens->count; ++i) {
-                sb_appendf(&temp_sb, "%s ", tokens->items[i]);
-            }
-            sb_append_null(&temp_sb);
+            args_to_query_string(&temp_sb, tokens);
 
             if (temp_sb.count > 0 && (strstr(temp_sb.items, ".CLOSED")
                 || strstr(temp_sb.items, ".OPEN") || strstr(temp_sb.items, ".all"))) {
@@ -499,9 +505,7 @@ bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens, print_tasks_opt op
             if (tokens->count > 1) sb_appendf(&sb, "(");
         }
 
-        for (u64 i = 0; i < tokens->count; ++i) {
-            sb_appendf(&sb, "%s%s", tokens->items[i], (i == tokens->count -1)? "" : " ");
-        }
+        args_to_query_string(&sb, tokens);
 
         if (!ignore_default && tokens->count > 1)
             sb_appendf(&sb, ")");
@@ -510,35 +514,32 @@ bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens, print_tasks_opt op
         sv = sb_to_sv(sb);
         *tokens = save;
 
-        // nob_log(INFO, SV_Fmt, SV_Arg(sv));
-
         l   = init_lexer(sv.items);
         s   = init_parser(l);
         ast = parse_query(s);
 
-        // Size of tasks->count; The list may contain holes, or be incomplete due to the filtering
-        n = eval_node(tasks, ast, false, list);
+        task_count = retrieve_tasks_from_query(tasks, ast, false, list);
     } else {
-        n = filter_by_name(tasks, sv_from_cstr(tokens->items[0]), list);
+        task_count = retrieve_tasks_from_name(tasks, sv_from_cstr(tokens->items[0]), list);
     }
 
-    if (n > 0) {
-        ordered = calloc(n, sizeof(task_t));
-        for (u32 i = 0; i < n; ++i)
+    if (task_count > 0) {
+        ordered = calloc(task_count, sizeof(task_t));
+        for (u32 i = 0; i < task_count; ++i)
             ordered[i] = *list[i];
 
         // TASK(20260824-192224): allow displaying and sorting task by their huid
         if (opts.byHUID) {
-            if (opts.reversed) qsort(ordered, n, sizeof(task_t), cmp_tasks_by_huid_reversed_void);
-            else qsort(ordered, n, sizeof(task_t), cmp_tasks_by_huid_void);
+            if (opts.reversed) qsort(ordered, task_count, sizeof(task_t), cmp_tasks_by_huid_reversed_void);
+            else qsort(ordered, task_count, sizeof(task_t), cmp_tasks_by_huid_void);
         } else {
-            if (opts.reversed) qsort(ordered, n, sizeof(task_t), cmp_tasks_rev_void);
-            else qsort(ordered, n, sizeof(task_t), cmp_tasks_void);
+            if (opts.reversed) qsort(ordered, task_count, sizeof(task_t), cmp_tasks_rev_void);
+            else qsort(ordered, task_count, sizeof(task_t), cmp_tasks_void);
         }
 
-        size_t alignment = find_best_alignment(ordered, n);
+        size_t alignment = find_best_alignment(ordered, task_count);
 
-        for (u32 i = 0; i < n; ++i) {
+        for (u32 i = 0; i < task_count; ++i) {
             print_task(stdout, &ordered[i], alignment);
         }
     } else {
