@@ -2,14 +2,14 @@
 
 ## Disclaimer
 
-Original idea by [@Tsoding](https://github.com/tsoding) (aka [@Rexim](https://github.com/rexim))  
-This is only a recreation for myself, it is open-source but not open-contributions, fork it and do whatever you want.  
-And once I'll reach a position where I'm comfortable with this tool, I'll start to add my own idea. This is not meant to be a 1:1 copy to Tsoding's (even more since I don't even know how he implemented his own).  
+Original idea and implementation by [@Tsoding](https://github.com/tsoding): [here](https://github.com/tsoding/tatr/)  
 
-Moreover, up until [this commit](https://github.com/UnknownRedFoxDev/task_tracker/tree/73bd3c513562d36f5b7fd263c2eb14428c467913), the history is only a sort of replay of what I had previously done.  
-Since I forgot to initialize a repo before starting the project, only everything after said commit is progress done in real time.  
+This repo is an implementation of mine before he released his version to the public.  
+It is in no-way a 1:1 to his, that it'd be in implementation, design, or usage of the tool, not saying it won't feel similar because it will. I've made adjustments to my own taste, good or bad, tailored for me.  
 
-This project did not, and will not use any form agentic coding/vibe coding. It was realized by hand and will continue to be done as such.  
+You can find the specs of the tool and its query language [here](https://github.com/tsoding/tatr/blob/README.md).  
+
+This project was and is made as a recreational side-project, no agentic tool were used, otherwise there is no reason to do any of that. Just use Tsoding's version if you prefer how he did his.
 
 ## How to use
 
@@ -28,21 +28,22 @@ The default behavior is to list every opened task available in their order of pr
 ./tatr
 ```
 
-List of feature available:
-
-`./tatr help`: See help message for more information  
-`./tatr version`: Displays relevent version information about the utility  
-`./tatr init [y]`: Initialize the tasks/ directory used by tatr, 'y' may be given to force creation  
-`./tatr edit <task-id>`: Opens in your $EDITOR (or default to vim) the task  
-`./tatr find <task-id>`: Finds and prints the task for quick access  
-`./tatr cat <task-id>`: Print a task's details. Avoids having to edit it just to see what's written.  
-`./tatr ls [<filters>] ["<name>"]`: Prints every task that answers by the query given. Filtering by tag and by name are **mutually exclusive**.  
-`./tatr new [OPTIONS] "<title>"`: Creates a new task and opens in your `$EDITOR`, defaults to vim.  
-`./tatr (rm|del) <task-id> [...]`: Deletes the task(s) specified  
-`./tatr close <task-id> [...]`: Closes the task(s)  
-`./tatr reopen <task-id> [...]`: Reopens the task(s)  
-`./tatr sum[mary]`: See the different stats related to the tasks available  
-`./tatr overwrite <task-id> [-t [+|-]<tags> ...] [-p [+|-]<priority>] [-s <O[PEN] | C[LOSED]>] [title]`: Given a task-id, you can modify its tags, priority, status and title  
+List of features available:
+| name | description |
+| - | - |
+| help | print the help message |
+| version | Displays relevant version information about the tooling |
+| init [y] | Initialise the tasks directory if not already present. `y` option is to force creation |
+| ls [OPTIONS] | Lists all tasks. Filters as strings can be passed to filter tasks by name, status and tags. Filtering by tag and by name are mutually exclusive |
+| ls-rev [OPTIONS] | Same as `ls`, but reverses the output's order |
+| edit \<task-huid\> | Opens in your $EDITOR (or default to vim) the task |
+| find \<task-huid\> | Finds and prints the task for quick access |
+| cat \<task-huid\> | Print a task's details. Avoids having to edit it just to see what's written |
+| new [OPTIONS] "\<title\>" | Creates a new task and opens in your $EDITOR, unless --no-editor is specified, defaults to vim |
+| rm \| del \<task-huid\> [...] | Closes the specified task(s) |
+| reopen \<task-huid\> [...] | Closes the specified task(s) |
+| sum[mary] | Prints stats info |
+| overwrite \<task-huid\> [-t [+\|-]\<tags\> ...] [-p [+\|-]\<priority\>] [-s <O[PEN] \| C[LOSED]>] [title] | Given a task-huid, you can modify its tags, priority, status and title |
 
 ## Filtering the tasks (tatr ls)
 
@@ -61,19 +62,19 @@ This allows for a different approach, a more permissive one at that.
 
 This works with keywords. Keywords here are `and`, `or` and `not`  
 
-- `.<tag1>`             : Filter by tasks having at least `tag1`  
-- `.<tag1> and .<tag2>` : Filter tasks having at least `tag1` AND `tag2`  
-- `.<tag1> or .<tag2>`  : Filter tasks having at least `tag1` OR `tag2`  
-- `not .<tag1>`         : Filter by tasks which do not have `tag1`  
+- `.<tag1>`             := Filter by tasks having at least `tag1`  
+- `.<tag1> and .<tag2>` := Filter tasks having at least `tag1` AND `tag2`  
+- `.<tag1> or .<tag2>`  := Filter tasks having at least `tag1` OR `tag2`  
+- `not .<tag1>`         := Filter by tasks which do not have `tag1`  
 
 
 Some predefined tags:  
 
-`.all`      : both .OPEN and .CLOSED tasks  
-`.OPEN`     : every opened tasks (default)  
-`.CLOSED`   : every closed tasks  
-`.TAGGED`   : every tagged tasks  
-`.UNTAGGED` : every untagged tasks  
+`.all`      := both .OPEN and .CLOSED tasks  
+`.OPEN`     := every opened tasks (default)  
+`.CLOSED`   := every closed tasks  
+`.TAGGED`   := every tagged tasks  
+`.UNTAGGED` := every untagged tasks  
 
 #### Example
 
