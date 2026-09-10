@@ -1,56 +1,117 @@
 #include <stdlib.h>
 #include "../lib/helper.h"
 
+typedef struct {
+    const char *name;
+    const char *description[16];
+} option_t;
+
 void usage(FILE *stream)
 {
+    option_t descriptions[] = {
+        (option_t){
+            .name = "help",
+            .description = {
+                "Lists this help message",
+            },
+        },
+        (option_t){
+            .name = "version",
+            .description = {
+                "Prints the git hash of the tooling",
+            },
+        },
+        (option_t){
+            .name = "init [y]",
+            .description = {
+                "Initialise the \"tasks\" directory if not already present. `y` option is to force creation",
+            },
+        },
+        (option_t){
+            .name = "ls",
+            .description = {
+                "Lists all tasks. Filters as strings can be passed to filter tasks by name, status and tags",
+                "Filtering by tag and by name are mutually exclusive",
+            }
+        },
+        (option_t){
+            .name = "ls-rev",
+            .description = {
+                "Same as `ls` but reverses the result",
+            }
+        },
+        (option_t){
+            .name = "sum[mary]",
+            .description = {
+                "Prints a summary of the tasks and their tags",
+            }
+        },
+        (option_t){
+            .name = "new [OPTIONS] <title>",
+            .description = {
+                "Creates a task",
+                "OPTIONS:",
+                "    -t <tags> : Add tags to the new task. Tags are comma seperated without space",
+                "    -p <priority> : Change priority from default 100 priority",
+                "    --no-editor : doesn't automatically open the task in your $EDITOR of choice",
+            }
+        },
+        (option_t){
+            .name = "cat <task-huid>",
+            .description = {
+                "Prints the details of the task to the output",
+            }
+        },
+        (option_t){
+            .name = "edit <task-huid>",
+            .description = {
+                "Opens the task specified in your $EDITOR of choice. Default to vim if $EDITOR is not set",
+            }
+        },
+        (option_t){
+            .name = "find <task-huid>",
+            .description = {
+                "Finds the task specified and prints it to the output",
+            }
+        },
+        (option_t){
+            .name = "del | rm <task-huid> [...]",
+            .description = {
+                "Deletes the task(s) given",
+            }
+        },
+        (option_t){
+            .name = "close <task-huid> [...]",
+            .description = {
+                "Closes the task(s) given",
+            }
+        },
+        (option_t){
+            .name = "reopen <task-huid> [...]",
+            .description = {
+                "Re-open the task(s) given, if they were closed",
+            }
+        },
+        (option_t){
+            .name = "overwrite <task-huid> [-t [+|-]<tags> ...] [-p [+|-]<priority>] [-s <O[PEN] | C[LOSED]>] [title]",
+            .description = {
+                "Given a task-huid, you can modify its tags, priority, status and title",
+            }
+        },
+    };
     fprintf(stream, "Usage: ./tatr <OPTIONS>\n");
     fprintf(stream, "OPTIONS:\n");
-    fprintf(stream, "    help\n");
-    fprintf(stream, "      Lists this help message\n");
-    fprintf(stream, "\n");
-    fprintf(stream, "    version\n");
-    fprintf(stream, "      Prints the git hash of the tooling\n");
-    fprintf(stream, "\n");
-    fprintf(stream, "    ls\n");
-    fprintf(stream, "      Lists all tasks. Filters as strings can be passed to filter tasks by name, status and tags\n");
-    fprintf(stream, "      Filtering by tag and by name are mutually exclusive\n");
-    fprintf(stream, "\n");
-    fprintf(stream, "    ls-rev\n");
-    fprintf(stream, "      Works similarly to `ls` but prints the tasks in the reverse order of priority\n");
-    fprintf(stream, "\n");
-    fprintf(stream, "    summary | sum\n");
-    fprintf(stream, "      Summary of the different stats of all tasks available\n");
-    fprintf(stream, "\n");
-    fprintf(stream, "    new [OPTIONS] <title>\n");
-    fprintf(stream, "      Creates a task\n");
-    fprintf(stream, "      OPTIONS:\n");
-    fprintf(stream, "          -t <tags> : Add tags to the new task. Tags are comma seperated without space\n");
-    fprintf(stream, "          -p <priority> : Change priority from default 100 priority\n");
-    fprintf(stream, "          --no-editor : doesn't automatically open the task in your $EDITOR of choice\n");
-    fprintf(stream, "\n");
-    fprintf(stream, "    cat <task-id>\n");
-    fprintf(stream, "      Prints the details of the task to the output\n");
-    fprintf(stream, "\n");
-    fprintf(stream, "    edit <task-id>\n");
-    fprintf(stream, "      Opens the task specified in your $EDITOR of choice. Default to vim if $EDITOR is not set\n");
-    fprintf(stream, "\n");
-    fprintf(stream, "    find <task-id>\n");
-    fprintf(stream, "      Finds the task specified and prints it to the output\n");
-    fprintf(stream, "\n");
-    fprintf(stream, "    rm | del <task-id> [...]\n");
-    fprintf(stream, "      Deletes the task(s) specified\n");
-    fprintf(stream, "\n");
-    fprintf(stream, "    close <task-id> [...]\n");
-    fprintf(stream, "      Closes the task(s) specified\n");
-    fprintf(stream, "\n");
-    fprintf(stream, "    reopen <task-id> [...]\n");
-    fprintf(stream, "      Reopens the task(s) specified\n");
-    fprintf(stream, "\n");
-    fprintf(stream, "    tatr overwrite <task-id> [-t [+|-]<tags> ...] [-p [+|-]<priority>] [-s <O[PEN] | C[LOSED]>] [title]\n");
-    fprintf(stream, "      Given a task-id, you can modify its tags, priority, status and title\n");
-    fprintf(stream, "\n");
-    fprintf(stream, "    tatr init [y]\n");
-    fprintf(stream, "      Initialize the tasks/ directory used by tatr, 'y' may be given to force creation\n");
+
+    size_t opt_len = ARRAY_LEN(descriptions);
+    for (size_t i = 0; i < opt_len; ++i) {
+        fprintf(stream, "    %s\n", descriptions[i].name);
+        for (size_t j = 0; j < ARRAY_LEN((descriptions[i].description)); ++j) {
+            if (descriptions[i].description[j]) {
+                fprintf(stream, "        %s\n", descriptions[i].description[j]);
+            }
+        }
+        fprintf(stream, "\n");
+    }
 }
 
 void parse_options(int argc, char **argv, cmdline_opts_t *opts, char **program_name)
