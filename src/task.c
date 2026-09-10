@@ -727,7 +727,7 @@ bool parse_task(const char *path, const char *uuid, task_t *task, tasks_t *tasks
     String_View tags_line = sv_chop_by_delim(&sv, '\n');
     if (sv_chop_prefix(&tags_line, sv_from_cstr("- TAGS: ")) && tags_line.count > 0) {
         while (tags_line.count) {
-            const char *tag = temp_sv_to_cstr(sv_chop_by_delim(&tags_line, ','));
+            const char *tag = temp_sv_to_cstr(sv_trim(sv_chop_by_delim(&tags_line, ',')));
             *ht_find_or_put(&__g_stats, tag) += 1;
             *ht_put(&task->tags, tag) = true;
         }

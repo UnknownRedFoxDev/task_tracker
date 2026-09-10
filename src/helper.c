@@ -126,6 +126,12 @@ void parse_options(int argc, char **argv, cmdline_opts_t *opts, char **program_n
 
     while (argc) {
         char *flag = shift(argv, argc);
+        if (strstr(flag, "--") || strstr(flag, "-")) {
+            fprintf(stderr, "No '--' or '-' is needed for the tool's options\n");
+            usage(stderr);
+            exit(1);
+        }
+
         if (strcmp(flag, "help") == 0) {
             opts->help = true;
             break;
