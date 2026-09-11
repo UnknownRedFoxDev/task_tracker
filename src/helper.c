@@ -93,9 +93,9 @@ void usage(FILE *stream)
             }
         },
         (option_t){
-            .name = "overwrite <task-huid> [-t [+|-]<tags> ...] [-p [+|-]<priority>] [-s <O[PEN] | C[LOSED]>] [title]",
+            .name = "overwrite [-t [+|-]<tags>[,...]] [-p [+|-]<priority>] [-s <O[PEN] | C[LOSED]>] [title] <task-huid [...] | query>",
             .description = {
-                "Given a task-huid, you can modify its tags, priority, status and title",
+                "Given a task-huid, or a query, you can modify the tasks' tags, priority, status and title",
             }
         },
     };
@@ -221,9 +221,7 @@ void parse_options(int argc, char **argv, cmdline_opts_t *opts, char **program_n
             opts->overwrite_task = calloc(1, sizeof(task_info_t));
             assert(opts->overwrite_task != NULL && "Failed to allocated space for overwrite's task info structure");
 
-            if (argc > 0) {
-                opts->overwrite_task->task_id = shift(argv, argc);
-            } else {
+            if (argc <= 0) {
                 usage(stderr);
                 exit(1);
             }
@@ -237,11 +235,12 @@ void parse_options(int argc, char **argv, cmdline_opts_t *opts, char **program_n
                         opts->overwrite_task->priority = shift(argv, argc);
                     } else if (strcmp(flag, "-s") == 0) {
                         opts->overwrite_task->status = cstr_to_task_status(shift(argv, argc));
-                    } else {
-                        opts->overwrite_task->title = flag;
+                    } else if (strcmp(flag, "-r") == 0) {
+                        opts->overwrite_task->title = shift(argv, argc);
                     }
                 } else {
-                    opts->overwrite_task->title = flag;
+                    // TASK(20260910-201839): allow `close`, `reopen`, `overwrite` and `rm` to "use" the query language
+                    da_append(opts->overwrite_task, flag);
                 }
             }
             break;

@@ -2,7 +2,7 @@
 
 - STATUS: CLOSED
 - PRIORITY: 80
-- TAGS: internal-rework,feature,bug,query-lang
+- TAGS: internal-rework,bug,query-lang
 
 # Current issue
 Queries like:

@@ -94,7 +94,9 @@ bool change_tasks_status(tasks_t *tasks, Flag_List_Mut *tasks_uuid, task_status 
     da_foreach (task_t, task, tasks) {
         for (u64 i = 0; i < tasks_uuid->count; ++i) {
             if (strcmp(task->uuid, tasks_uuid->items[i]) == 0) {
-                task_info_t info = {.task_id = task->uuid, .status = new_status};
+                task_info_t info = {0};
+                da_append(&info, task->uuid);
+                info.status = new_status;
                 if (!overwrite_task(tasks, &info)) return false;
                 da_remove_unordered(tasks_uuid, i);
                 break;
@@ -453,80 +455,90 @@ void args_to_query_string(String_Builder *dst, Flag_List_Mut *src)
         }
         sb_appendf(dst, "%s", src->items[i]);
     }
-    sb_append_null(dst);
+}
+
+bool is_task_name(Flag_List_Mut *tokens)
+{
+    if (tokens->count >= 1) {
+        String_View token = sv_from_cstr(tokens->items[0]);
+        if (!sv_starts_with(token, SVLIT("."))) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+u32 get_tasks(const tasks_t *tasks, String_View token_str, task_t **list)
+{
+    String_Builder sb = {0};
+    String_View sv = {0};
+    bool ignore_default = false;
+    u32 result = 0;
+    Lexer *l = NULL;
+    Parser *s = NULL;
+    Node_t *ast = NULL;
+
+    if (token_str.count > 0
+        && (strstr(token_str.items, ".CLOSED")
+        || strstr(token_str.items, ".OPEN")
+        || strstr(token_str.items, ".all"))) {
+        ignore_default = true;
+    }
+
+    if (!ignore_default) {
+        sb_appendf(&sb, ".OPEN");
+        if (token_str.count > 0) sb_appendf(&sb, " and ");
+        if (token_str.count > 1) sb_appendf(&sb, "(");
+    }
+
+    sb_append_buf(&sb, token_str.items, token_str.count);
+
+    if (!ignore_default && token_str.count > 1) {
+        sb_appendf(&sb, ")");
+    }
+
+    sb_append_null(&sb);
+    sv = sb_to_sv(sb);
+
+    l   = init_lexer(sv.items);
+    s   = init_parser(l);
+    ast = parse_query(s);
+
+    result = retrieve_tasks_from_query(tasks, ast, false, list);
+
+    clean_ast(ast);
+    clean_parser(&s);
+
+    return result;
 }
 
 // pre-defined tags: .OPEN, .CLOSED, .UNTAGGED, .TAGGED (not .UNTAGGED)
 // by default: .OPEN
 bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens, print_tasks_opt opts)
 {
-
-    String_View sv = {0};
-    String_Builder sb = {0};
-    bool ignore_default = false;
-    bool name_filtering = false;
+    bool name_filtering = is_task_name(tokens);
     bool result = true;
-    Flag_List_Mut save = *tokens;
-    task_t *ordered = NULL;
     u32 task_count = 0;
-    Lexer *l = NULL;
-    Parser *s = NULL;
-    Node_t *ast = NULL;
+    task_t *ordered = NULL;
+    task_t **task_list = NULL;
+    task_list = calloc(tasks->count, sizeof(task_t *));
+    if (!task_list) return_defer(false);
 
-    task_t **list = NULL;
-    list = calloc(tasks->count, sizeof(task_t *));
-    if (!list) return_defer(false);
+    String_Builder sb = {0};
+    args_to_query_string(&sb, tokens);
 
-    if (0) {
-        if (tokens->count == 1) {
-            String_View token = sv_from_cstr(tokens->items[0]);
-            if (!sv_starts_with(token, SVLIT("."))) {
-                name_filtering = true;
-            }
-        }
-    }
-
-    if (!name_filtering) {
-        {
-            String_Builder temp_sb = {0};
-            args_to_query_string(&temp_sb, tokens);
-
-            if (temp_sb.count > 0 && (strstr(temp_sb.items, ".CLOSED")
-                || strstr(temp_sb.items, ".OPEN") || strstr(temp_sb.items, ".all"))) {
-                ignore_default = true;
-            }
-
-            free(temp_sb.items);
-        }
-
-        if (!ignore_default) {
-            sb_appendf(&sb, ".OPEN");
-            if (tokens->count > 0) sb_appendf(&sb, " and ");
-            if (tokens->count > 1) sb_appendf(&sb, "(");
-        }
-
-        args_to_query_string(&sb, tokens);
-
-        if (!ignore_default && tokens->count > 1)
-            sb_appendf(&sb, ")");
-
-        sb_append_null(&sb);
-        sv = sb_to_sv(sb);
-        *tokens = save;
-
-        l   = init_lexer(sv.items);
-        s   = init_parser(l);
-        ast = parse_query(s);
-
-        task_count = retrieve_tasks_from_query(tasks, ast, false, list);
+    if (name_filtering) {
+        task_count = retrieve_tasks_from_name(tasks, sv_from_cstr(tokens->items[0]), task_list);
     } else {
-        task_count = retrieve_tasks_from_name(tasks, sv_from_cstr(tokens->items[0]), list);
+        String_View sv = sb_to_sv(sb);
+        task_count = get_tasks(tasks, sv, task_list);
     }
 
     if (task_count > 0) {
         ordered = calloc(task_count, sizeof(task_t));
         for (u32 i = 0; i < task_count; ++i)
-            ordered[i] = *list[i];
+            ordered[i] = *task_list[i];
 
         // TASK(20260824-192224): allow displaying and sorting task by their huid
         if (opts.byHUID) {
@@ -552,12 +564,10 @@ bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens, print_tasks_opt op
 
 defer:
     if (result) {
-        free(list);
+        free(task_list);
         free(ordered);
     }
 
-    clean_ast(ast);
-    clean_parser(&s);
     free(sb.items);
     return result;
 }
@@ -869,201 +879,321 @@ s32 set_attribut_line(const char *path, const char *new_attribut, String_Builder
     return true;
 }
 
-// task(20260805-022652): Implement overwrite cmdline
+bool change_task_title(const char *task_md_path, const char *new_title, const char *task_uuid)
+{
+    String_Builder previous_title = {0};
+    String_Builder sb = {0};
+    String_Builder temp_sb = {0};
+    bool result = true;
+    if (!set_attribut_line(task_md_path, temp_sprintf("# %s", new_title), &previous_title, TITLE_LINE, &sb, &temp_sb)) {
+        return_defer(false);
+    }
+    nob_log(INFO, "Title: renamed from \"%*s\" to \"# %s\" for task(%s)", (int)previous_title.count-1, previous_title.items, new_title, task_uuid);
+
+defer:
+    free(previous_title.items);
+    free(sb.items);
+    free(temp_sb.items);
+    return result;
+}
+
+bool change_task_priority(const char *task_md_path, task_t *task, const char *new_priority)
+{
+    overwrite_mode priority_mode = OVERWRITE_SET;
+    String_Builder sb = {0};
+    String_Builder temp_sb = {0};
+    bool result = true;
+
+    String_View a = sv_from_cstr(new_priority);
+    if (sv_starts_with(a, sv_from_cstr("+"))) {
+        priority_mode = OVERWRITE_ADD;
+    } else if (sv_starts_with(a, sv_from_cstr("-"))) {
+        priority_mode = OVERWRITE_SUB;
+    }
+
+    int priority = atoi(new_priority);
+    int old_priority = task->priority;
+
+    if (priority > 0) {
+        switch (priority_mode) {
+            case OVERWRITE_SET:
+                task->priority = priority;
+                break;
+            case OVERWRITE_ADD:
+                task->priority += priority;
+                break;
+            case OVERWRITE_SUB:
+                task->priority -= priority;
+                break;
+            default:
+                UNREACHABLE("priority: overwrite_mode");
+        }
+        if (!read_file_until_n_line(task_md_path, PRIORITY_LINE, &sb, &temp_sb)) return_defer(false);
+
+        sb_appendf(&sb, "%ld\n", task->priority);
+        sb_append_buf(&sb, temp_sb.items, temp_sb.count);
+
+        if (!write_entire_file(task_md_path, sb.items, sb.count)) return_defer(false);
+
+        nob_log(INFO, "Priority: changed from %d to %ld for task(%s)", old_priority, task->priority, task->uuid);
+    }
+
+defer:
+
+    free(sb.items);
+    free(temp_sb.items);
+    return result;
+}
+
+bool remove_task_tags(const char *task_md_path, const char *tag, const char *uuid)
+{
+    String_Builder sb = {0};
+    String_Builder temp_sb = {0};
+    String_Builder read_tag = {0};
+    bool read_tag_found = false;
+    bool result = true;
+    s32 character_count = 0;
+    size_t total_count = 0;
+    size_t ite = 0;
+
+    if (!read_file_until_n_line(task_md_path, TAGS_LINE, &sb, &temp_sb)) return_defer(false);
+
+    while (sb.items[sb.count++] != '\n') character_count++;
+    sb.count -= character_count + 1;
+    total_count = character_count;
+
+    do {
+        // Get each tag seperated by a comma
+        while (sb.items[sb.count + ite] != ',' && sb.items[sb.count + ite] != '\n') {
+            sb_appendf(&read_tag, "%c", sb.items[sb.count + ite]);
+            ite += 1;
+        }
+        sb_append_null(&read_tag);
+        character_count -= ite + 1; // +1 to account for the comma
+
+        // nob_log(INFO, "read tag: %s", read_tag.items);
+        if (strcmp(read_tag.items, tag) == 0) {
+            read_tag_found = true;
+            // TAGS: test,bug,cmdline-options\n < file
+            // TAGS: test,cmdline-options\n     < sb
+            if (sb.items[sb.count + ite + 1] == '\n') {
+                sb.count -= 1; // If tag is at the end of the list, remove the last comma off it.
+                character_count += 1; // In reverse, character count is probably negative, so cancel that out
+            }
+            sb_append_buf(&sb, sb.items + sb.count + ite + 1, character_count + 1);
+            // Not sure if I should break or not, because imagine the TAGS line is like:
+            // - TAGS: bug, test, test, test, test, litter, useless, feature, test, aaaa, test, useless, test
+            // Where test is to remove. Stopping at the first removal will not do what we want to do
+
+            break;
+        }
+
+        sb.count += ite+1;
+        read_tag.count = 0;
+        ite = 0;
+    } while (sb.items[sb.count] != '\n');
+
+    if (!read_tag_found) {
+        sb_append_buf(&sb, sb.items + sb.count - total_count - 1, total_count + 1);
+    } else {
+        nob_log(INFO, "Tag: \"%s\" was removed from task(%s)", tag, uuid);
+    }
+
+    sb_append_buf(&sb, temp_sb.items, temp_sb.count);
+    if (!write_entire_file(task_md_path, sb.items, sb.count)) return_defer(false);
+
+defer:
+    free(sb.items);
+    free(temp_sb.items);
+    free(read_tag.items);
+    return result;
+}
+
+bool add_task_tag(const char *task_md_path, const char *tag, const char *task_uuid)
+{
+    String_Builder sb = {0};
+    String_Builder temp_sb = {0};
+    bool result = true;
+    if (!read_file_until_n_line(task_md_path, TAGS_LINE, &sb, &temp_sb)) return_defer(false);
+    while (sb.items[sb.count++] != '\n');
+
+    sb.count -= 1;
+
+    sb_appendf(&sb, ",%s\n", tag);
+    nob_log(INFO, "Tag: \"%s\" was added to task(%s)", tag, task_uuid);
+
+    sb_append_buf(&sb, temp_sb.items, temp_sb.count);
+    if (!write_entire_file(task_md_path, sb.items, sb.count)) return_defer(false);
+
+defer:
+    free(sb.items);
+    free(temp_sb.items);
+    return result;
+}
+
+
+bool change_task_tags(const char *task_md_path, task_t *task, const char *tags)
+{
+    String_Builder sb = {0};
+    String_Builder temp_sb = {0};
+    bool result = true;
+
+    overwrite_mode tag_mode = OVERWRITE_SET;
+    String_View tags_sv = sv_from_cstr(tags);
+
+    while (tags_sv.count) {
+        size_t i = 0;
+        for (; i < tags_sv.count && tags_sv.items[i] != ','; ++i);
+        String_View tag_sv = sv_from_parts(tags_sv.items, i);
+
+        if (sv_starts_with(tag_sv, sv_from_cstr("+"))) {
+            tag_mode = OVERWRITE_ADD;
+            sv_chop_left(&tag_sv, 1);
+        } else if (sv_starts_with(tag_sv, sv_from_cstr("-"))) {
+            tag_mode = OVERWRITE_SUB;
+            sv_chop_left(&tag_sv, 1);
+        }
+
+        const char *tag = nob_temp_sv_to_cstr(tag_sv);
+        bool tag_already_present = ht_find(&task->tags, tag);
+
+        switch (tag_mode) {
+            case OVERWRITE_SUB: {
+                if (tag_already_present) {
+                    if (!remove_task_tags(task_md_path, tag, task->uuid)) {
+                        return_defer(false);
+                    }
+                } else {
+                    nob_log(WARNING, "Tag: \"%s\" for task(%s) was not found. Deletion cancelled", tag, task->uuid);
+                }
+            } break;
+            case OVERWRITE_ADD: {
+                if (!tag_already_present) {
+                    if (!add_task_tag(task_md_path, tag, task->uuid)) {
+                        return_defer(false);
+                    }
+                } else {
+                    nob_log(WARNING, "Tag: \"%s\" for task(%s) is already present. Addition cancelled", tag, task->uuid);
+                }
+            } break;
+            case OVERWRITE_SET: {
+                if (!tag_already_present) {
+                    String_Builder previous_tags = {0};
+
+                    if (!set_attribut_line(task_md_path, tag, &previous_tags, TAGS_LINE, &sb, &temp_sb)) return_defer(false);
+                    nob_log(INFO, "Tag: changed from \"%*s\" to \"%s\" for task(%s)",
+                            (int)previous_tags.count-1, previous_tags.items, tag, task->uuid);
+
+                    tags_sv.count = 0;
+                    free(previous_tags.items);
+                }
+            } break;
+            default:
+                UNREACHABLE("overwrite_mode");
+        }
+
+        if (i < tags_sv.count) {
+            tags_sv.count -= i + 1;
+            tags_sv.data  += i + 1;
+        } else {
+            tags_sv.count -= i;
+            tags_sv.data  += i;
+        }
+
+        sb.count = 0;
+        temp_sb.count = 0;
+    }
+
+defer:
+    free(sb.items);
+    free(temp_sb.items);
+    return result;
+}
+
+bool change_task_status(const char *task_md_path, task_t *task, task_status new_status)
+{
+    String_Builder sb = {0};
+    String_Builder temp_sb = {0};
+    bool result = true;
+
+    if (!read_file_until_n_line(task_md_path, STATUS_LINE, &sb, &temp_sb)) {
+        return_defer(false);
+    }
+
+    sb_appendf(&sb, "%s\n", task_status_to_cstr(new_status));
+    sb_append_buf(&sb, temp_sb.items, temp_sb.count);
+
+    if (!write_entire_file(task_md_path, sb.items, sb.count)) {
+        return_defer(false);
+    }
+
+    nob_log(INFO, "%s task(%s): %s", (new_status == STATUS_CLOSED)? "Closed" : "Reopened", task->uuid, task->name);
+
+defer:
+    free(sb.items);
+    free(temp_sb.items);
+    return result;
+}
+
+task_t *find_task_by_uuid(const tasks_t *tasks, const char *uuid)
+{
+    da_foreach (task_t, task, tasks) {
+        if (strcmp(task->uuid, uuid) != 0) continue;
+        return task;
+    }
+
+    return NULL;
+}
+
+// task(20260805-162024): This task is used as a test subject for the overwrite command
 bool overwrite_task(tasks_t *tasks, task_info_t *info)
 {
-    if (info->task_id == NULL) {
+    if (info->items == NULL) {
         nob_log(ERROR, "Failed to overwrite task: no task huid was provided");
         return false;
     }
 
-    // task(20260805-162024): This task is used as a test subject for the overwrite command
-    da_foreach (task_t, task, tasks) {
-        if (strcmp(task->uuid, info->task_id) != 0) continue;
+    tasks_t target_task = {0};
+    da_foreach (char *, item, info) {
+        if ((*item)[0] != '.') {
+            task_t *task = find_task_by_uuid(tasks, *item);
+            da_append(&target_task, *task);
+        } else {
+            TODO("implement using query rather than task huid");
+        }
+    }
+
+    da_foreach (task_t, task, &target_task) {
+        // TODO("Figure out what to do with tasks when overwriting something");
 
         const char *task_md_path = temp_sprintf("%s/%s/TASK.md", task->path, task->uuid);
-        String_Builder sb = {0};
-        String_Builder temp_sb = {0};
         bool result = true;
 
-        // -=-=-=-=-=-=-=-=-=-=-= TITLE =-=-=-=-=-=-=-=-=-=-=-
-        // TASK(20260813-001316): Overwriting title does not work
         if (info->title != NULL) {
-            String_Builder previous_title = {0};
-            if (!set_attribut_line(task_md_path, temp_sprintf("# %s", info->title), &previous_title, TITLE_LINE, &sb, &temp_sb)) return_defer(false);
-            nob_log(INFO, "Title: changed from \"%*s\" to \"# %s\" for task(%s)", (int)previous_title.count-1, previous_title.items, info->title, task->uuid);
-            free(previous_title.items);
-            return_defer(true);
+            if (!change_task_title(task_md_path, info->title, task->uuid)) {
+                return_defer(false);
+            }
         }
-        overwrite_mode priority_mode = OVERWRITE_SET;
-        overwrite_mode tag_mode      = OVERWRITE_SET;
 
-        // -=-=-=-=-=-=-=-=-=-=-= PRIORITY =-=-=-=-=-=-=-=-=-=-=-
         if (info->priority != NULL) {
-            String_View a = sv_from_cstr(info->priority);
-            if (sv_starts_with(a, sv_from_cstr("+"))) {
-                priority_mode = OVERWRITE_ADD;
-            } else if (sv_starts_with(a, sv_from_cstr("-"))) {
-                priority_mode = OVERWRITE_SUB;
-            }
-
-            int new_priority = atoi(info->priority);
-            int old_priority = task->priority;
-            if (new_priority > 0) {
-                switch (priority_mode) {
-                    case OVERWRITE_SET:
-                        task->priority = new_priority;
-                        break;
-                    case OVERWRITE_ADD:
-                        task->priority += new_priority;
-                        break;
-                    case OVERWRITE_SUB:
-                        task->priority -= new_priority;
-                        break;
-                    default:
-                        UNREACHABLE("priority: overwrite_mode");
-                }
-                if (!read_file_until_n_line(task_md_path, PRIORITY_LINE, &sb, &temp_sb)) return_defer(false);
-
-                sb_appendf(&sb, "%d\n", new_priority);
-                sb_append_buf(&sb, temp_sb.items, temp_sb.count);
-
-                if (!write_entire_file(task_md_path, sb.items, sb.count)) return_defer(false);
-
-                nob_log(INFO, "Priority: changed from %d to %d for task(%s)", old_priority, new_priority, task->uuid);
-                sb.count = 0;
-                temp_sb.count = 0;
+            if (!change_task_priority(task_md_path, task, info->priority)) {
+                return_defer(false);
             }
         }
 
-        // -=-=-=-=-=-=-=-=-=-=-= TAGS =-=-=-=-=-=-=-=-=-=-=-
         if (info->tags != NULL) {
-            String_View a = sv_from_cstr(info->tags);
-            // nob_log(INFO, "tags: "SV_Fmt, SV_Arg(a));
-
-            while (a.count) {
-                size_t i = 0;
-                while (i < a.count && a.items[i] != ',') {
-                    i += 1;
-                }
-                String_View tag_sv = sv_from_parts(a.items, i);
-
-                if (sv_starts_with(tag_sv, sv_from_cstr("+"))) {
-                    tag_mode = OVERWRITE_ADD;
-                    sv_chop_left(&tag_sv, 1);
-                } else if (sv_starts_with(tag_sv, sv_from_cstr("-"))) {
-                    tag_mode = OVERWRITE_SUB;
-                    sv_chop_left(&tag_sv, 1);
-                }
-
-                const char *tag = nob_temp_sv_to_cstr(tag_sv);
-                bool tag_already_present = ht_find(&task->tags, tag);
-                // nob_log(INFO, "tag mode: %s", (tag_mode == OVERWRITE_SET)? "set" : (tag_mode == OVERWRITE_ADD)? "add" : "sub");
-                // nob_log(INFO, "current tag: %s", tag);
-
-                if (tag_already_present) {
-                    if (tag_mode == OVERWRITE_SUB) {
-                        if (!read_file_until_n_line(task_md_path, TAGS_LINE, &sb, &temp_sb)) return_defer(false);
-                        bool read_tag_found = false;
-                        size_t total_count = 0;
-                        String_Builder read_tag = {0};
-                        size_t ite = 0;
-                        s32 character_count = 0;
-
-                        while (sb.items[sb.count++] != '\n') character_count++;
-                        sb.count -= character_count + 1;
-                        total_count = character_count;
-
-                        do {
-                            while (sb.items[sb.count + ite] != ',' && sb.items[sb.count + ite] != '\n') {
-                                sb_appendf(&read_tag, "%c", sb.items[sb.count + ite]);
-                                ite += 1;
-                            }
-                            sb_append_null(&read_tag);
-                            character_count -= ite + 1; // +1 to account for the comma
-
-                            // nob_log(INFO, "read tag: %s", read_tag.items);
-                            if (strcmp(read_tag.items, tag) == 0) {
-                                read_tag_found = true;
-                                nob_log(INFO, "Tag: \"%s\" was removed from task(%s)", tag, task->uuid);
-                                // TAGS: test,bug,cmdline-options\n < file
-                                // TAGS: test,cmdline-options\n     < sb
-                                if (sb.items[sb.count + ite + 1] == '\n') {
-                                    sb.count -= 1; // If tag is at the end of the list, remove the last comma off it.
-                                    character_count += 1; // In reverse, character count is probably negative, so cancel that out
-                                }
-                                sb_append_buf(&sb, sb.items + sb.count + ite + 1, character_count + 1);
-                                break;
-                            }
-
-                            sb.count += ite+1;
-                            read_tag.count = 0;
-                            ite = 0;
-                        } while (sb.items[sb.count] != '\n');
-
-                        if (!read_tag_found) {
-                            sb_append_buf(&sb, sb.items + sb.count - total_count - 1, total_count + 1);
-                        }
-
-                        sb_append_buf(&sb, temp_sb.items, temp_sb.count);
-                        if (!write_entire_file(task_md_path, sb.items, sb.count)) return_defer(false);
-                    } else if (tag_mode == OVERWRITE_ADD) {
-                        nob_log(WARNING, "Tag: \"%s\" for task(%s) is already present. Addition cancelled", tag, task->uuid);
-                    }
-                } else {
-                    if (tag_mode == OVERWRITE_SUB) {
-                        nob_log(WARNING, "Tag: \"%s\" for task(%s) was not found. Deletion cancelled", tag, task->uuid);
-                    } else if (tag_mode == OVERWRITE_ADD) {
-                        if (!read_file_until_n_line(task_md_path, TAGS_LINE, &sb, &temp_sb)) return_defer(false);
-                        while (sb.items[sb.count++] != '\n');
-
-                        sb.count -= 1;
-
-                        sb_appendf(&sb, ",%s\n", tag);
-                        nob_log(INFO, "Tag: \"%s\" was added to task(%s)", tag, task->uuid);
-
-                        sb_append_buf(&sb, temp_sb.items, temp_sb.count);
-                        if (!write_entire_file(task_md_path, sb.items, sb.count)) return_defer(false);
-                    } else if (tag_mode == OVERWRITE_SET) {
-                        String_Builder previous_tags = {0};
-
-                        if (!set_attribut_line(task_md_path, info->tags, &previous_tags, TAGS_LINE, &sb, &temp_sb)) return_defer(false);
-                        nob_log(INFO, "Tag: changed from \"%*s\" to \"%s\" for task(%s)", (int)previous_tags.count-1, previous_tags.items, info->tags, task->uuid);
-
-                        a.count = 0;
-                        free(previous_tags.items);
-                    }
-                }
-
-                if (i < a.count) {
-                    a.count -= i + 1;
-                    a.data  += i + 1;
-                } else {
-                    a.count -= i;
-                    a.data  += i;
-                }
-
-                sb.count = 0;
-                temp_sb.count = 0;
+            if (!change_task_tags(task_md_path, task, info->tags)) {
+                return_defer(false);
             }
         }
 
         if (info->status != task->status && info->status != STATUS_NONE) {
-            if (!read_file_until_n_line(task_md_path, STATUS_LINE, &sb, &temp_sb)) return_defer(false);
-
-            sb_appendf(&sb, "%s\n", task_status_to_cstr(info->status));
-            sb_append_buf(&sb, temp_sb.items, temp_sb.count);
-
-            if (!write_entire_file(task_md_path, sb.items, sb.count)) return_defer(false);
-
-            nob_log(INFO, "%s task(%s): %s", (info->status == STATUS_CLOSED)? "Closed" : "Reopened", task->uuid, task->name);
-            sb.count = 0;
-            temp_sb.count = 0;
+            if (!change_task_status(task_md_path, task, info->status)) {
+                return_defer(false);
+            }
         }
 
 defer:
-        free(sb.items);
-        free(temp_sb.items);
         return result;
     }
     return false;

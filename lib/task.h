@@ -6,7 +6,7 @@
 
 #define DISTANCE_THRESHOLD 5
 
-typedef struct tasks_t tasks_t;
+typedef struct tasks_s tasks_t;
 
 typedef struct {
     char *name;
@@ -19,8 +19,8 @@ typedef struct {
     size_t capacity;
 } tags_t;
 
-typedef struct task_t {
-    const struct task_t *parent;
+typedef struct task_s {
+    const struct task_s *parent;
     char *path;
     char *uuid;
     char *name;
@@ -30,7 +30,7 @@ typedef struct task_t {
     tasks_t *subtasks;
 } task_t;
 
-struct tasks_t {
+struct tasks_s {
     task_t *items;
     u64 count;
     u64 capacity;
@@ -58,7 +58,6 @@ bool parse_task(const char *path, const char *uuid, task_t *task, tasks_t *tasks
 bool parse_tasks(const char *path, tasks_t *tasks, const task_t *parent, tasks_t *subtasks);
 void print_task(FILE *stream, task_t *task, int alignment);
 void parse_tags(const char *tasks_path);
-bool change_task_status(task_t *task, task_status new_status);
 bool change_tasks_status(tasks_t *tasks, Flag_List_Mut *tasks_uuid, task_status new_status);
 size_t find_best_alignment(task_t *tasks, u32 tasks_len);
 u32 retrieve_tasks_from_query(const tasks_t *tasks, Node_t *root, bool negated, task_t **result);

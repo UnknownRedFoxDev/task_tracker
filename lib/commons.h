@@ -54,9 +54,11 @@ typedef enum {
 } task_status;
 
 typedef struct {
+    char **items;
+    size_t count;
+    size_t capacity;
     char *title;
     char *tags;
-    char *task_id;
     char *priority;
     task_status status;
 } task_info_t;
