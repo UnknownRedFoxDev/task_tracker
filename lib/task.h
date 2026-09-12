@@ -57,7 +57,7 @@ bool remove_tasks(tasks_t *tasks, Flag_List_Mut *tasks_uuid);
 bool parse_task(const char *path, const char *uuid, task_t *task, tasks_t *tasks);
 bool parse_tasks(const char *path, tasks_t *tasks, const task_t *parent, tasks_t *subtasks);
 void print_task(FILE *stream, task_t *task, int alignment);
-void parse_tags(const char *tasks_path);
+bool parse_tags(const char *tasks_path);
 bool change_tasks_status(tasks_t *tasks, Flag_List_Mut *tasks_uuid, task_status new_status);
 size_t find_best_alignment(task_t *tasks, u32 tasks_len);
 u32 retrieve_tasks_from_query(const tasks_t *tasks, Node_t *root, bool negated, task_t **result);

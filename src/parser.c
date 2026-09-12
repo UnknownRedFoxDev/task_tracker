@@ -427,6 +427,7 @@ void clean_ast(Node_t *node)
     } else {
         clean_ast(node->lhs);
         clean_ast(node->rhs);
+        free(node);
     }
 }
 

@@ -8,6 +8,16 @@
 static tags_t __g_tags = {0};
 static Ht(const char*, int) __g_stats = { .hasheq = ht_cstr_hasheq };
 
+int cmp_tasks_by_huid_void(const void *t1, const void *t2)
+{
+    return cmp_tasks_by_huid((const task_t *)t1, (const task_t *)t2);
+}
+
+int cmp_tasks_by_huid_reversed_void(const void *t1, const void *t2)
+{
+    return cmp_tasks_by_huid_reversed((const task_t *)t1, (const task_t *)t2);
+}
+
 task_t *find_task(tasks_t *tasks, const char *uuid)
 {
     task_t *result = NULL;
@@ -47,14 +57,37 @@ bool remove_task(task_t *task)
     return true;
 }
 
-bool remove_tasks(tasks_t *tasks, Flag_List_Mut *tasks_uuid)
+bool remove_tasks(tasks_t *tasks, Flag_List_Mut *tasks_uuid, int *last_n)
 {
-    da_foreach (task_t, task, tasks) {
-        for (u64 i = 0; i < tasks_uuid->count; ++i) {
-            if (strcmp(task->uuid, tasks_uuid->items[i]) == 0) {
-                if (!remove_task(task)) return false;
-                da_remove_unordered(tasks_uuid, i);
-                break;
+    if (!last_n) {
+        da_foreach (task_t, task, tasks) {
+            for (u64 i = 0; i < tasks_uuid->count; ++i) {
+                if (strcmp(task->uuid, tasks_uuid->items[i]) == 0) {
+                    if (!remove_task(task)) return false;
+                    da_remove_unordered(tasks_uuid, i);
+                    break;
+                }
+            }
+        }
+    } else {
+        task_t *ordered = calloc(tasks->count, sizeof(task_t));
+        if (!ordered) {
+            nob_log(ERROR, "remove_tasks(): Failed to create an ordered list of tasks");
+            return false;
+        }
+
+        for (u32 i = 0; i < tasks->count; ++i) {
+            // Only delete the recent opened tasks
+            if (ht_find(&tasks->items[i].tags, "OPEN")) {
+                ordered[i] = tasks->items[i];
+            }
+        }
+
+        qsort(ordered, task->count, sizeof(task_t), cmp_tasks_by_huid_void);
+
+        for (size_t i = 0; i < last_n; ++i) {
+            if (!remove_task(ordered[i])) {
+                return false;
             }
         }
     }
@@ -98,6 +131,7 @@ bool change_tasks_status(tasks_t *tasks, Flag_List_Mut *tasks_uuid, task_status 
                 da_append(&info, task->uuid);
                 info.status = new_status;
                 if (!overwrite_task(tasks, &info)) return false;
+                free(info.items);
                 da_remove_unordered(tasks_uuid, i);
                 break;
             }
@@ -208,6 +242,7 @@ void task_summary(const char *tasks_dir)
     }
 
     free_tags(&__g_tags);
+    free(ordered_list);
 }
 
 struct task_distance {
@@ -224,15 +259,6 @@ int cmp_tasks_by_huid(const task_t *t1, const task_t *t2)
 int cmp_tasks_by_huid_reversed(const task_t *t1, const task_t *t2)
 {
     return strcmp(t2->uuid, t1->uuid);
-}
-int cmp_tasks_by_huid_void(const void *t1, const void *t2)
-{
-    return cmp_tasks_by_huid((const task_t *)t1, (const task_t *)t2);
-}
-
-int cmp_tasks_by_huid_reversed_void(const void *t1, const void *t2)
-{
-    return cmp_tasks_by_huid_reversed((const task_t *)t1, (const task_t *)t2);
 }
 
 // By Task's Priority
@@ -375,7 +401,7 @@ u32 retrieve_tasks_from_query(const tasks_t *tasks, Node_t *root, bool negated, 
     }
     case NODE_AND: {
         assert(root->lhs && "and-node's lhs should not be NULL");
-        task_t **lhs_result =  calloc(tasks->count, sizeof(task_t *));
+        task_t **lhs_result = calloc(tasks->count, sizeof(task_t *));
         if (!lhs_result) {
             nob_log(ERROR, "Failed to allocate space for table of task_t pointers");
             exit(1);
@@ -409,6 +435,8 @@ u32 retrieve_tasks_from_query(const tasks_t *tasks, Node_t *root, bool negated, 
             result[result_ite++] = *val;
         }
 
+        ht_free(&ht_tasks_set);
+        free(lhs_result);
         break;
     }
     case NODE_OR: {
@@ -434,6 +462,7 @@ u32 retrieve_tasks_from_query(const tasks_t *tasks, Node_t *root, bool negated, 
             result[result_ite++] = *val;
         }
 
+        ht_free(&ht_tasks_set);
         break;
     }
     case_compare(NODE_LT,  <  root->rhs->as.integer, tasks, result, result_ite);
@@ -509,6 +538,7 @@ u32 get_tasks(const tasks_t *tasks, String_View token_str, task_t **list)
 
     clean_ast(ast);
     clean_parser(&s);
+    free(sb.items);
 
     return result;
 }
@@ -522,8 +552,6 @@ bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens, print_tasks_opt op
     u32 task_count = 0;
     task_t *ordered = NULL;
     task_t **task_list = NULL;
-    task_list = calloc(tasks->count, sizeof(task_t *));
-    if (!task_list) return_defer(false);
 
     String_Builder sb = {0};
     args_to_query_string(&sb, tokens);
@@ -531,6 +559,10 @@ bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens, print_tasks_opt op
     if (name_filtering) {
         task_count = retrieve_tasks_from_name(tasks, sv_from_cstr(tokens->items[0]), task_list);
     } else {
+        task_list = calloc(tasks->count, sizeof(task_t *));
+        if (!task_list) {
+            return_defer(false);
+        }
         String_View sv = sb_to_sv(sb);
         task_count = get_tasks(tasks, sv, task_list);
     }
@@ -563,11 +595,9 @@ bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens, print_tasks_opt op
     }
 
 defer:
-    if (result) {
-        free(task_list);
-        free(ordered);
-    }
 
+    free(ordered);
+    free(task_list);
     free(sb.items);
     return result;
 }
@@ -631,6 +661,8 @@ task_t *create_task(const char *path, task_info_t *info, bool no_editor)
         if (!cmd_run(&cmd)) {
             nob_log(WARNING, "Failed to copy HUID to clipboard. Is wl-copy installed?");
         }
+
+        free(cmd.items);
 #ifdef DEBUG
         minimal_log_level = DEBUG;
 #else
@@ -686,20 +718,20 @@ bool parse_task(const char *path, const char *uuid, task_t *task, tasks_t *tasks
         return_defer(false);
     }
 
-    size_t checkpoint = temp_save();
-
-    if (paths.count > 2) { // Each directory has the obligatory . and ..
-        task->subtasks = calloc(1, sizeof(tasks_t));
-        da_foreach (const char *, path, &paths) {
-            temp_rewind(checkpoint);
-            const char *full_path = temp_sprintf("%s%s", task_path, *path);
-            Nob_File_Type ft = nob_get_file_type(full_path);
-            if (ft == NOB_FILE_DIRECTORY && *path[0] != '.' && strstr(full_path, "tasks/")) { // Exclude '.', '..', '.git', etc
-                parse_tasks(full_path, tasks, task, task->subtasks);
-                break;
-            }
-        }
-    }
+    // size_t checkpoint = temp_save();
+    //
+    // if (paths.count > 2) { // Each directory has the obligatory . and ..
+    //     task->subtasks = calloc(1, sizeof(tasks_t));
+    //     da_foreach (const char *, path, &paths) {
+    //         temp_rewind(checkpoint);
+    //         const char *full_path = temp_sprintf("%s%s", task_path, *path);
+    //         Nob_File_Type ft = nob_get_file_type(full_path);
+    //         if (ft == NOB_FILE_DIRECTORY && *path[0] != '.' && strstr(full_path, "tasks/")) { // Exclude '.', '..', '.git', etc
+    //             parse_tasks(full_path, tasks, task, task->subtasks);
+    //             break;
+    //         }
+    //     }
+    // }
 
     free(paths.items);
 
@@ -863,7 +895,8 @@ typedef enum {
 #define PRIORITY_LINE 4
 #define TAGS_LINE 5
 
-s32 set_attribut_line(const char *path, const char *new_attribut, String_Builder *previous_attribut, s32 line_number, String_Builder *sb, String_Builder *temp_sb) {
+s32 set_attribut_line(const char *path, const char *new_attribut, String_Builder *previous_attribut, s32 line_number, String_Builder *sb, String_Builder *temp_sb)
+{
     if (!read_file_until_n_line(path, line_number, sb, temp_sb)) return false;
 
     size_t ite = sb->count;
@@ -1148,12 +1181,14 @@ task_t *find_task_by_uuid(const tasks_t *tasks, const char *uuid)
 // task(20260805-162024): This task is used as a test subject for the overwrite command
 bool overwrite_task(tasks_t *tasks, task_info_t *info)
 {
+    bool result = true;
+    tasks_t target_task = {0};
+
     if (info->items == NULL) {
         nob_log(ERROR, "Failed to overwrite task: no task huid was provided");
-        return false;
+        return_defer(false);
     }
 
-    tasks_t target_task = {0};
     da_foreach (char *, item, info) {
         if ((*item)[0] != '.') {
             task_t *task = find_task_by_uuid(tasks, *item);
@@ -1165,9 +1200,7 @@ bool overwrite_task(tasks_t *tasks, task_info_t *info)
 
     da_foreach (task_t, task, &target_task) {
         // TODO("Figure out what to do with tasks when overwriting something");
-
         const char *task_md_path = temp_sprintf("%s/%s/TASK.md", task->path, task->uuid);
-        bool result = true;
 
         if (info->title != NULL) {
             if (!change_task_title(task_md_path, info->title, task->uuid)) {
@@ -1193,24 +1226,27 @@ bool overwrite_task(tasks_t *tasks, task_info_t *info)
             }
         }
 
-defer:
-        return result;
     }
-    return false;
+defer:
+    free(target_task.items);
+    return result;
 }
 
-void parse_tags(const char *tasks_path)
+bool parse_tags(const char *tasks_path)
 {
     const char *tags_path = temp_sprintf("%s/tags.md", tasks_path);
+    bool result = true;
     if (!file_exists(tags_path)) {
         // Silently exit, not every user would have a tags.md to describe there tags
-        return ;
+        return_defer(false);
     }
 
     // File structure:
     // <tag>: <description>
     String_Builder sb = {0};
-    if (!read_entire_file(tags_path, &sb)) return ;
+    if (!read_entire_file(tags_path, &sb)) {
+        return_defer(false);
+    }
 
     String_View sv = sb_to_sv(sb);
     while (sv.count > 0) {
@@ -1225,6 +1261,10 @@ void parse_tags(const char *tasks_path)
 
         da_append(&__g_tags, tag);
     }
+
+defer:
+    free(sb.items);
+    return result;
 }
 
 void free_tag(tag_t *tag)

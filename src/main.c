@@ -9,7 +9,9 @@ int main(int argc, char **argv)
     cmdline_opts_t opts = {0};
     tasks_t tasks = {0};
     char *program_name = NULL;
-    int result = 0; parse_options(argc, argv, &opts, &program_name);
+    int result = 0;
+
+    parse_options(argc, argv, &opts, &program_name);
 
     const char *cwd = get_current_dir_temp();
     char *tasks_dir = find_tasks_dir(cwd);
@@ -38,6 +40,7 @@ int main(int argc, char **argv)
             open_task(task);
         }
         free_task(task);
+        free(task);
     }
     else if (opts.summary) {
         task_summary(tasks_dir);
@@ -73,6 +76,16 @@ int main(int argc, char **argv)
 defer:
     free_tasks(&tasks);
     free(opts.filters.items);
+
+    if (opts.create_task) {
+        free(opts.create_task->items);
+    }
+    free(opts.create_task);
+
+    if (opts.overwrite_task) {
+        free(opts.overwrite_task->items);
+    }
+    free(opts.overwrite_task);
     free(tasks_dir);
     return result;
 }
