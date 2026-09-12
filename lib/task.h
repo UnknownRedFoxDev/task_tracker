@@ -51,7 +51,7 @@ bool open_task(task_t *task);
 bool remove_task(task_t *task);
 void cat_task(task_t *task);
 bool print_tasks(const tasks_t *tasks, Flag_List_Mut *tokens, print_tasks_opt opts);
-bool remove_tasks(tasks_t *tasks, Flag_List_Mut *tasks_uuid);
+bool remove_tasks(tasks_t *tasks, Flag_List_Mut *tasks_uuid, int last_n);
 
 // helper functions
 bool parse_task(const char *path, const char *uuid, task_t *task, tasks_t *tasks);

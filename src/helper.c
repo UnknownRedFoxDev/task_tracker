@@ -75,9 +75,10 @@ void usage(FILE *stream)
             }
         },
         (option_t){
-            .name = "del | rm <task-huid> [...]",
+            .name = "del | rm [-last <int>] <task-huid> [...]",
             .description = {
                 "Deletes the task(s) given",
+                "Using the `-last` flag lets you delete the last n tasks opened. Incompatible with giving huid"
             }
         },
         (option_t){
@@ -199,6 +200,12 @@ void parse_options(int argc, char **argv, cmdline_opts_t *opts, char **program_n
             opts->find_task = shift(argv, argc);
             break;
         } else if (strcmp(flag, "rm") == 0 || strcmp(flag, "del") == 0) {
+            if (argc > 0) {
+                flag = shift(argv, argc);
+                if (strcmp(flag, "-last") == 0) {
+                    opts->last_n = atoi(shift(argv, argc));
+                }
+            }
             opts->remove_tasks = true;
             break;
         // TASK(20260805-161529): Change close and reopen cmdline options to use overwrite function rather than having its own thing

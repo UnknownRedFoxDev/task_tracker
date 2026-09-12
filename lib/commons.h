@@ -69,6 +69,7 @@ typedef struct {
 } print_tasks_opt;
 
 typedef struct cmdline_opts_s {
+    int   last_n;
     bool  help;
     bool  version;
     bool  list_tasks;

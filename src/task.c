@@ -8,6 +8,17 @@
 static tags_t __g_tags = {0};
 static Ht(const char*, int) __g_stats = { .hasheq = ht_cstr_hasheq };
 
+// By HUID
+int cmp_tasks_by_huid(const task_t *t1, const task_t *t2)
+{
+    return strcmp(t1->uuid, t2->uuid);
+}
+
+int cmp_tasks_by_huid_reversed(const task_t *t1, const task_t *t2)
+{
+    return strcmp(t2->uuid, t1->uuid);
+}
+
 int cmp_tasks_by_huid_void(const void *t1, const void *t2)
 {
     return cmp_tasks_by_huid((const task_t *)t1, (const task_t *)t2);
@@ -57,9 +68,9 @@ bool remove_task(task_t *task)
     return true;
 }
 
-bool remove_tasks(tasks_t *tasks, Flag_List_Mut *tasks_uuid, int *last_n)
+bool remove_tasks(tasks_t *tasks, Flag_List_Mut *tasks_uuid, int last_n)
 {
-    if (!last_n) {
+    if (last_n <= 0) {
         da_foreach (task_t, task, tasks) {
             for (u64 i = 0; i < tasks_uuid->count; ++i) {
                 if (strcmp(task->uuid, tasks_uuid->items[i]) == 0) {
@@ -75,21 +86,23 @@ bool remove_tasks(tasks_t *tasks, Flag_List_Mut *tasks_uuid, int *last_n)
             nob_log(ERROR, "remove_tasks(): Failed to create an ordered list of tasks");
             return false;
         }
-
-        for (u32 i = 0; i < tasks->count; ++i) {
+        int len = 0;
+        for (size_t i = 0; i < tasks->count; ++i) {
             // Only delete the recent opened tasks
             if (ht_find(&tasks->items[i].tags, "OPEN")) {
-                ordered[i] = tasks->items[i];
+                ordered[len++] = tasks->items[i];
             }
         }
 
-        qsort(ordered, task->count, sizeof(task_t), cmp_tasks_by_huid_void);
+        qsort(ordered, len, sizeof(task_t), cmp_tasks_by_huid_reversed_void);
 
-        for (size_t i = 0; i < last_n; ++i) {
-            if (!remove_task(ordered[i])) {
+        for (int i = 0; i < last_n && i < len; ++i) {
+            if (!remove_task(&ordered[i])) {
                 return false;
             }
         }
+
+        free(ordered);
     }
     return true;
 }
@@ -249,17 +262,6 @@ struct task_distance {
     u64 dist;
     task_t *task;
 };
-
-// By HUID
-int cmp_tasks_by_huid(const task_t *t1, const task_t *t2)
-{
-    return strcmp(t1->uuid, t2->uuid);
-}
-
-int cmp_tasks_by_huid_reversed(const task_t *t1, const task_t *t2)
-{
-    return strcmp(t2->uuid, t1->uuid);
-}
 
 // By Task's Priority
 int cmp_tasks(const task_t *t1, const task_t *t2)

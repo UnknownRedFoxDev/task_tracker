@@ -47,11 +47,13 @@ tatr \- a task tracker tooling to keep track of your tasks
 .br
 .B tatr
 .B rm
+.RI [\| -last\ <int> \|]
 .I <task-id>
 \&.\|.\|.\&
 .br
 .B tatr
 .B del
+.RI [\| -last\ <int> \|]
 .I <task-id>
 \&.\|.\|.\&
 .br
@@ -139,11 +141,15 @@ Closes the task or tasks provided by their id.
 .br
 Reopens the task or tasks provided by their id.
 .TP
-.BI tatr\ rm \ <task-id> \ \&.\|.\|.\&
+.BI tatr\ rm \ [\|-last\ <int>\|]\ <task-id> \ \&.\|.\|.\&
 .br
 Deletes the task or tasks provided by their id. Using
 .BI tatr \ del
 also works the same.
+.br
+Using the
+.B -last
+flag let's you delete the n most recent task created.
 .TP
 .B tatr\ ls\ [\|ls\ options\|]\ [\|"<name>"\|]
 .br

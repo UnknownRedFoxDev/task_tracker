@@ -61,7 +61,7 @@ int main(int argc, char **argv)
         print_task(stdout, task, DEFAULT_ALIGNMENT);
     }
     else if (opts.remove_tasks) {
-        remove_tasks(&tasks, &opts.filters);
+        remove_tasks(&tasks, &opts.filters, opts.last_n);
     }
     else if (opts.close_tasks) {
         change_tasks_status(&tasks, &opts.filters, STATUS_CLOSED);
