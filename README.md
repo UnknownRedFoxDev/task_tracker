@@ -40,7 +40,7 @@ List of features available:
 | find \<task-huid\> | Finds and prints the task for quick access |
 | cat \<task-huid\> | Print a task's details. Avoids having to edit it just to see what's written |
 | new [OPTIONS] "\<title\>" | Creates a new task and opens in your $EDITOR, unless --no-editor is specified, defaults to vim |
-| rm \| del \<task-huid\> [...] | Closes the specified task(s) |
+| rm \| del [-last \<int\>] \<task-huid\> [...] | Deletes the specified task(s), or the n last opened tasks with `-last` flag |
 | reopen \<task-huid\> [...] | Closes the specified task(s) |
 | sum[mary] | Prints stats info |
 | overwrite \<task-huid\> [-t [+\|-]\<tags\> ...] [-p [+\|-]\<priority\>] [-s <O[PEN] \| C[LOSED]>] [title] | Given a task-huid, you can modify its tags, priority, status and title |
