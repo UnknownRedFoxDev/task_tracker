@@ -18,7 +18,7 @@ char consume(Lexer *l)
 
 bool is_special_char(char c)
 {
-    return (c == ' ' || c == '\0' || c == ')' || c == '(');
+    return (c == ' ' || c == '\0' || c == ']' || c == '[');
 }
 
 Lexer *init_lexer(const char *query)
@@ -55,12 +55,12 @@ Token_t next_token(Lexer *l)
         switch (c) {
         case '\0':
             return (Token_t){.kind = TOKEN_EOF}; // End of the query string
-        case '(': {
+        case '[': {
             advance(l);
             l->curr_word_size = 1;
             return (Token_t){.kind = TOKEN_LPAREN};
         }
-        case ')': {
+        case ']': {
             advance(l);
             l->curr_word_size = 1;
             return (Token_t){.kind = TOKEN_RPAREN};

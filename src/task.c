@@ -520,13 +520,13 @@ u32 get_tasks(const tasks_t *tasks, String_View token_str, task_t **list)
     if (!ignore_default) {
         sb_appendf(&sb, ".OPEN");
         if (token_str.count > 0) sb_appendf(&sb, " and ");
-        if (token_str.count > 1) sb_appendf(&sb, "(");
+        if (token_str.count > 1) sb_appendf(&sb, "[");
     }
 
     sb_append_buf(&sb, token_str.items, token_str.count);
 
     if (!ignore_default && token_str.count > 1) {
-        sb_appendf(&sb, ")");
+        sb_appendf(&sb, "]");
     }
 
     sb_append_null(&sb);
