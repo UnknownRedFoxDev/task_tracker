@@ -415,5 +415,15 @@ void print_tool_version(const char *program_name)
 #else
     nob_log(INFO, "Git version: %s", GIT_HASH);
 #endif // GIT_HASH
+#ifndef COMPILER_VERSION
+    nob_log(WARNING, "Compiler version is not defined. Please recompile the latest version.");
+#else
+    nob_log(INFO, "Compiler: %s", COMPILER_VERSION);
+#endif // COMPILER_VERSION
+#ifndef COMPILE_DATE
+    nob_log(WARNING, "Compile date is not defined. Please recompile the latest version.");
+#else
+    nob_log(INFO, "Last compiled: %s", COMPILE_DATE);
+#endif // COMPILE_DATE
 }
 

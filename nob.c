@@ -7,7 +7,7 @@
 #define LIBPATH         BUILD_DIR"modules.a"
 #define EXECUTABLE_NAME "tatr"
 #define EXECUTABLE_PATH BIN_DIR EXECUTABLE_NAME
-#define GIT_HASH_HEADER BIN_DIR "git_hash.h"
+#define TOOL_INFO_HEADER BIN_DIR "tool_info.h"
 
 bool debug = false;
 
@@ -135,27 +135,54 @@ void parse_flag(int argc, char **argv, bool *help, bool *rebuild, Flag_List *run
     }
 }
 
+const char *get_utc_date()
+{
+    setlocale(LC_TIME, "en_US.utf-8");
+
+    time_t now = time(NULL);
+    struct tm *tm_info = localtime(&now);
+    char *buffer = NULL;
+    buffer = calloc(128, sizeof(char));
+
+    // Format time; output is UTF-8 encoded due to locale
+    strftime(buffer, 128, "%a, %d %b %Y %T %z", tm_info);
+    return buffer;
+}
+
 void generate_git_hash()
 {
     Cmd cmd = {0};
-    cmd_append(&cmd, "git", "rev-parse", "HEAD");
-    if (!cmd_run(&cmd, .stdout_path = BIN_DIR "git_hash.txt")) return ;
-
-    String_Builder git_hash = {0};
-    if (!read_entire_file(BIN_DIR "git_hash.txt", &git_hash)) return ;
-    while (isspace(git_hash.items[git_hash.count-1])) {
-        git_hash.count -= 1;
-    }
-    sb_append_null(&git_hash);
-
     String_Builder sb = {0};
-    sb_appendf(&sb, "#ifndef GIT_HASH_H\n");
-    sb_appendf(&sb, "#define GIT_HASH_H\n");
-    sb_appendf(&sb, "#define GIT_HASH \"%s\"\n", git_hash.items);
-    sb_appendf(&sb, "#endif // GIT_HASH_H\n");
+    sb_appendf(&sb, "#ifndef TOOL_INFO_H\n");
+    sb_appendf(&sb, "#define TOOL_INFO_H\n");
 
-    if (!write_entire_file(GIT_HASH_HEADER, sb.items, sb.count)) return ;
-    sb_free(git_hash);
+    // Git version information
+    cmd_append(&cmd, "git", "rev-parse", "--short", "HEAD");
+    if (cmd_run(&cmd, .stdout_path = BIN_DIR "git_hash.txt")) {
+        String_Builder git_hash = {0};
+        if (!read_entire_file(BIN_DIR "git_hash.txt", &git_hash)) return ;
+        while (isspace(git_hash.items[git_hash.count--]));
+        sb_append_null(&git_hash);
+        sb_appendf(&sb, "#define GIT_HASH \"%s\"\n", git_hash.items);
+        sb_free(git_hash);
+    }
+
+    // Compiler information
+    cmd_append(&cmd, CXX, "--version");
+    if (cmd_run(&cmd, .stdout_path = BIN_DIR "compiler_version.txt")) {
+        String_Builder compiler_version = {0};
+        if (!read_entire_file(BIN_DIR "compiler_version.txt", &compiler_version)) return ;
+        String_View sv = sb_to_sv(compiler_version);
+        sv = sv_chop_by_delim(&sv, '\n');
+        sb_append_null(&compiler_version);
+        sb_appendf(&sb, "#define COMPILER_VERSION \""SV_Fmt"\"\n", SV_Arg(sv));
+        sb_free(compiler_version);
+    }
+    sb_appendf(&sb, "#define COMPILE_DATE \"%s\"\n", get_utc_date());
+
+    sb_appendf(&sb, "#endif // TOOL_INFO_H\n");
+
+    if (!write_entire_file(TOOL_INFO_HEADER, sb.items, sb.count)) return ;
     sb_free(sb);
 }
 
@@ -190,7 +217,7 @@ int main(int argc, char **argv)
     da_append(&modules, "parser");
 
     if (rebuild || !file_exists(BIN_DIR)) initialise_directories();
-    if (rebuild || debug || !file_exists(GIT_HASH_HEADER)) generate_git_hash();
+    if (rebuild || debug || !file_exists(TOOL_INFO_HEADER)) generate_git_hash();
     if (!nobuild && !compile_submodules(&modules, &needs_recompile)) return_defer(1);
     if (!nobuild && !compile_main(&cmd, needs_recompile)) return_defer(1);
 

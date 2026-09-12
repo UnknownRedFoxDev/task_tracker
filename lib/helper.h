@@ -3,7 +3,7 @@
 
 #include "commons.h"
 #include "task.h"
-#include <git_hash.h>
+#include <tool_info.h>
 
 void usage(FILE *stream);
 void parse_options(int argc, char **argv, cmdline_opts_t *opts, char **program_name);
