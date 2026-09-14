@@ -43,7 +43,7 @@ List of features available:
 | rm \| del [-last \<int\>] \<task-huid\> [...] | Deletes the specified task(s), or the n last opened tasks with `-last` flag |
 | reopen \<task-huid\> [...] | Closes the specified task(s) |
 | sum[mary] | Prints stats info |
-| overwrite [-t [+|-]\<tags\>[,...]] [-p [+|-]\<priority\>] [-s <O[PEN] | C[LOSED]>] [title] \<task-huid [...] | query\> | Modify a or multiple tasks' tags, priority, title or status at once |
+| overwrite [OPTIONS] \<task-huid [...] \| query\> | Modify a or multiple tasks' tags, priority, title or status at once |
 
 ## Filtering the tasks (tatr ls)
 
