@@ -20,15 +20,15 @@ tatr \- a task tracker tooling to keep track of your tasks
 .br
 .B tatr
 .B edit
-.I <task-id>
+.I <task-huid>
 .br
 .B tatr
 .B find
-.IR <task-id>
+.IR <task-huid>
 .br
 .B tatr
 .B cat
-.IR <task-id>
+.IR <task-huid>
 .br
 .B tatr
 .B new
@@ -37,24 +37,24 @@ tatr \- a task tracker tooling to keep track of your tasks
 .br
 .B tatr
 .B close
-.I <task-id>
+.I <task-huid>
 \&.\|.\|.\&
 .br
 .B tatr
 .B reopen
-.I <task-id>
+.I <task-huid>
 \&.\|.\|.\&
 .br
 .B tatr
 .B rm
 .RI [\| -last\ <int> \|]
-.I <task-id>
+.I <task-huid>
 \&.\|.\|.\&
 .br
 .B tatr
 .B del
 .RI [\| -last\ <int> \|]
-.I <task-id>
+.I <task-huid>
 \&.\|.\|.\&
 .br
 .B tatr
@@ -62,9 +62,8 @@ tatr \- a task tracker tooling to keep track of your tasks
 .br
 .B tatr
 .B overwrite
-.I <task-id>
 .RI [\| "overwrite options" \|]
-.RI [\|"new\ title"\|]
+.I <task-huid [...] | query>
 .\" \&.\|.\|.\&
 .br
 .SH DESCRIPTION
@@ -115,11 +114,11 @@ with a
 .RI \|"tasks/"\|
 directory, it does not yet exists. Adding "y" as an option forces the creation of the directory.
 .TP
-.BI tatr\ find \ <task-id>
+.BI tatr\ find \ <task-huid>
 .br
 Displays the information of a task, provided by its id.
 .TP
-.BI tatr\ cat \ <task-id>
+.BI tatr\ cat \ <task-huid>
 .br
 Prints to the terminal the information of a task, provided by its id.
 .TP
@@ -127,21 +126,21 @@ Prints to the terminal the information of a task, provided by its id.
 .br
 Displays general information about the tasks. Statistics relative to the tags and amount of tasks.
 .TP
-.BI tatr\ edit \ <task-id>
+.BI tatr\ edit \ <task-huid>
 .br
 Opens in your
 .I $EDITOR
 of choice the task provided by its id. Defaults to vim.
 .TP
-.BI tatr\ close \ <task-id> \ \&.\|.\|.\&
+.BI tatr\ close \ <task-huid> \ \&.\|.\|.\&
 .br
 Closes the task or tasks provided by their id.
 .TP
-.BI tatr\ reopen \ <task-id> \ \&.\|.\|.\&
+.BI tatr\ reopen \ <task-huid> \ \&.\|.\|.\&
 .br
 Reopens the task or tasks provided by their id.
 .TP
-.BI tatr\ rm \ [\|-last\ <int>\|]\ <task-id> \ \&.\|.\|.\&
+.BI tatr\ rm \ [\|-last\ <int>\|]\ <task-huid> \ \&.\|.\|.\&
 .br
 Deletes the task or tasks provided by their id. Using
 .BI tatr \ del
@@ -193,10 +192,9 @@ Creates a new task of title
 .I new options
 allow you to add comma seperated tags, and to define the task's priority as it's being created.
 .TP
-.B tatr\ overwrite\ <task-id>\ [\|overwrite\ options\|]\ [\|"new title"\|]
+.B tatr\ overwrite\ [\|overwrite\ options\|] \ <task-huid [...] | query>
 .br
-Overwrites the task by its
-.IR task-id \&.\&
+Overwrites task(s)'s tag, title, priority and status all at once.
 .br
 The
 .IR overwrite\ options
@@ -211,12 +209,15 @@ allows you to change the task's priority
 allows you to overwrite the task's tags
 .br
 .BI \-t \ +<tag>,-<tag>\&.\|.\|.\&
-allows you to add or remove tags from the task's tags
+allows you to add or remove tags from the task's tags. Which is exclusive to overwriting the tags whole.
 .br
 .BI \-s \ O[\|pen\|]
 |
 .I C[\|losed\|]
 changes the task's status to opened or closed
+.br
+.BI \-r \ "title"
+allows you to rename the task. Be careful as this can be used with queries to mass rename to the same task name.
 .SH Examples
 .TP
 tatr new -t feature,debug "this is a feature to be added for debug purposed" -p 42
@@ -255,11 +256,13 @@ As of 2026-07-04, the filtering system now fully supports enclosing with parenth
 As of 2026-07-06, you can now either filter by name or by tags
 .TP
 As of 2026-08-24, query language now works using a proper lexer, parser and even an ast tree.
+.TP
+As of 2026-09-14, you can permissively modify tasks' properties from the command line using the `overwrite` option
 .SH AUTHORS
-Designed, implemented and improved by
-.B UnknownRedFoxo
+Designed, implemented and tailored to and by
+.BR UnknownRedFoxDev \ (UnknownRedFoxo)
 .br
-Idea/Concept by
+Idea, concept and specs by
 .BR Tsoding \ (Rexim)
 .SH COPYRIGHT
-.B M.I.T. License
+.B GNU GPLv2.0

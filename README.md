@@ -43,7 +43,7 @@ List of features available:
 | rm \| del [-last \<int\>] \<task-huid\> [...] | Deletes the specified task(s), or the n last opened tasks with `-last` flag |
 | reopen \<task-huid\> [...] | Closes the specified task(s) |
 | sum[mary] | Prints stats info |
-| overwrite \<task-huid\> [-t [+\|-]\<tags\> ...] [-p [+\|-]\<priority\>] [-s <O[PEN] \| C[LOSED]>] [title] | Given a task-huid, you can modify its tags, priority, status and title |
+| overwrite [-t [+|-]\<tags\>[,...]] [-p [+|-]\<priority\>] [-s <O[PEN] | C[LOSED]>] [title] \<task-huid [...] | query\> | Modify a or multiple tasks' tags, priority, title or status at once |
 
 ## Filtering the tasks (tatr ls)
 
@@ -66,7 +66,7 @@ This works with keywords. Keywords here are `and`, `or` and `not`
 - `.<tag1> and .<tag2>` := Filter tasks having at least `tag1` AND `tag2`  
 - `.<tag1> or .<tag2>`  := Filter tasks having at least `tag1` OR `tag2`  
 - `not .<tag1>`         := Filter by tasks which do not have `tag1`  
-
+- `[expr]`              := Group tag expression inside "[" "]"
 
 Some predefined tags:  
 
@@ -87,13 +87,13 @@ Some predefined tags:
 ```
 
 ```bash
-./tatr ls .all and (.bug and not (.complex or .important)) # for every tasks, if they contain bug, while not having complex or important
+./tatr ls .all and [.bug and not [.complex or .important]] # for every tasks, if they contain bug, while not having complex or important
 # equivalent to
-./tatr ls .all and (.bug and (not .complex or not .important)) # for every tasks, if they contain bug, while not having complex or important
+./tatr ls .all and [.bug and [not .complex or not .important]] # for every tasks, if they contain bug, while not having complex or important
 ```
 
 ```bash
-./tatr ls not (not (not (not (not (not .urmom))))) # every opened task that did urmom
+./tatr ls not [not [not [not [not [not .urmom]]]]] # every opened task that did urmom
 ```
 
 

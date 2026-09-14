@@ -110,7 +110,7 @@ void usage(FILE *stream, const char *program_name)
             // .name = "overwrite [-t [+|-]<tags>[,...]] [-p [+|-]<priority>] [-s <O[PEN] | C[LOSED]>] [title] <task-huid [...] | query>",
             .name = "overwrite",
             .description = {
-                "Given a task-huid, or a query, you can modify the tasks' tags, priority, status and title",
+                "Modify a or multiple tasks' tags, priority, title or status at once",
             }
         },
     };
