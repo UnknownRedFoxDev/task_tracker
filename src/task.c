@@ -1237,7 +1237,10 @@ defer:
 bool parse_tags(const char *tasks_path)
 {
     const char *tags_path = temp_sprintf("%s/tags.md", tasks_path);
+    String_Builder sb = {0};
     bool result = true;
+    String_View sv = {0};
+
     if (!file_exists(tags_path)) {
         // Silently exit, not every user would have a tags.md to describe there tags
         return_defer(false);
@@ -1245,12 +1248,11 @@ bool parse_tags(const char *tasks_path)
 
     // File structure:
     // <tag>: <description>
-    String_Builder sb = {0};
     if (!read_entire_file(tags_path, &sb)) {
         return_defer(false);
     }
 
-    String_View sv = sb_to_sv(sb);
+    sv = sb_to_sv(sb);
     while (sv.count > 0) {
         String_View line = sv_chop_by_delim(&sv, '\n');
         String_View tag_sv = sv_chop_by_delim(&line, ' ');

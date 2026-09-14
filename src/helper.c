@@ -200,10 +200,11 @@ void parse_options(int argc, char **argv, cmdline_opts_t *opts, char **program_n
             opts->find_task = shift(argv, argc);
             break;
         } else if (strcmp(flag, "rm") == 0 || strcmp(flag, "del") == 0) {
+            opts->last_n = 0;
             if (argc > 0) {
-                flag = shift(argv, argc);
+                flag = argv[0];
                 if (strcmp(flag, "-last") == 0) {
-                    opts->last_n = atoi(shift(argv, argc));
+                    opts->last_n = atoi(argv[1]);
                 }
             }
             opts->remove_tasks = true;
