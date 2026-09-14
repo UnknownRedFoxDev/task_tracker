@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 60
-- TAGS:
+- TAGS: internal-rework, query-lang
 
 Rather than giving the tasks huid directly, the query language could be used.
 

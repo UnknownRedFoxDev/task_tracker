@@ -5,7 +5,7 @@
 #include "task.h"
 #include <tool_info.h>
 
-void usage(FILE *stream);
+void usage(FILE *stream, const char *program_name);
 void parse_options(int argc, char **argv, cmdline_opts_t *opts, char **program_name);
 
 char *get_timestamp_uuid();

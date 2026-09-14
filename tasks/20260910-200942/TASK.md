@@ -1,6 +1,6 @@
 # change parentheses with brackets
 
-- STATUS: OPEN
-- PRIORITY: 40
-- TAGS:
+- STATUS: CLOSED
+- PRIORITY: 30
+- TAGS: query-lang
 

@@ -6,7 +6,7 @@ typedef struct {
     const char *description[16];
 } option_t;
 
-void usage(FILE *stream)
+void usage(FILE *stream, const char *program_name)
 {
     option_t descriptions[] = {
         (option_t){
@@ -22,16 +22,21 @@ void usage(FILE *stream)
             },
         },
         (option_t){
-            .name = "init [y]",
+            .name = "init",
             .description = {
-                "Initialise the \"tasks\" directory if not already present. `y` option is to force creation",
+                "Initialise the \"tasks\" directory if not already present.",
             },
+        },
+        (option_t){
+            .name = "summary",
+            .description = {
+                "Prints a summary of the tasks and their tags",
+            }
         },
         (option_t){
             .name = "ls",
             .description = {
                 "Lists all tasks. Filters as strings can be passed to filter tasks by name, status and tags",
-                "Filtering by tag and by name are mutually exclusive",
             }
         },
         (option_t){
@@ -41,95 +46,103 @@ void usage(FILE *stream)
             }
         },
         (option_t){
-            .name = "sum[mary]",
-            .description = {
-                "Prints a summary of the tasks and their tags",
-            }
-        },
-        (option_t){
-            .name = "new [OPTIONS] <title>",
+            .name = "new",
             .description = {
                 "Creates a task",
-                "OPTIONS:",
-                "    -t <tags> : Add tags to the new task. Tags are comma seperated without space",
-                "    -p <priority> : Change priority from default 100 priority",
-                "    --no-editor : doesn't automatically open the task in your $EDITOR of choice",
+                // "OPTIONS:",
+                // "    -t <tags> : Add tags to the new task. Tags are comma seperated without space",
+                // "    -p <priority> : Change priority from default 100 priority",
+                // "    --no-editor : doesn't automatically open the task in your $EDITOR of choice",
             }
         },
         (option_t){
-            .name = "cat <task-huid>",
-            .description = {
-                "Prints the details of the task to the output",
-            }
-        },
-        (option_t){
-            .name = "edit <task-huid>",
-            .description = {
-                "Opens the task specified in your $EDITOR of choice. Default to vim if $EDITOR is not set",
-            }
-        },
-        (option_t){
-            .name = "find <task-huid>",
-            .description = {
-                "Finds the task specified and prints it to the output",
-            }
-        },
-        (option_t){
-            .name = "del | rm [-last <int>] <task-huid> [...]",
-            .description = {
-                "Deletes the task(s) given",
-                "Using the `-last` flag lets you delete the last n tasks opened. Incompatible with giving huid"
-            }
-        },
-        (option_t){
-            .name = "close <task-huid> [...]",
+            // .name = "close <task-huid> [...]",
+            .name = "close",
             .description = {
                 "Closes the task(s) given",
             }
         },
         (option_t){
-            .name = "reopen <task-huid> [...]",
+            // .name = "reopen <task-huid> [...]",
+            .name = "reopen",
             .description = {
                 "Re-open the task(s) given, if they were closed",
             }
         },
         (option_t){
-            .name = "overwrite [-t [+|-]<tags>[,...]] [-p [+|-]<priority>] [-s <O[PEN] | C[LOSED]>] [title] <task-huid [...] | query>",
+            // .name = "find <task-huid>",
+            .name = "find",
+            .description = {
+                "Finds the task specified and prints it to the output",
+            }
+        },
+        (option_t){
+            // .name = "cat <task-huid>",
+            .name = "cat",
+            .description = {
+                "Prints the details of the task to the output",
+            }
+        },
+        (option_t){
+            // .name = "edit <task-huid>",
+            .name = "edit",
+            .description = {
+                "Opens the task specified in your $EDITOR (or vim if $EDITOR is not set) of choice",
+            }
+        },
+        (option_t){
+            // .name = "del | rm [-last <int>] <task-huid> [...]",
+            .name = "del",
+            .description = {
+                "Deletes the task(s) given",
+                // "Using the `-last` flag lets you delete the last n tasks opened. Incompatible with giving huid"
+            }
+        },
+        (option_t){
+            // .name = "del | rm [-last <int>] <task-huid> [...]",
+            .name = "rm",
+            .description = {
+                "Deletes the task(s) given",
+                // "Using the `-last` flag lets you delete the last n tasks opened. Incompatible with giving huid"
+            }
+        },
+        (option_t){
+            // .name = "overwrite [-t [+|-]<tags>[,...]] [-p [+|-]<priority>] [-s <O[PEN] | C[LOSED]>] [title] <task-huid [...] | query>",
+            .name = "overwrite",
             .description = {
                 "Given a task-huid, or a query, you can modify the tasks' tags, priority, status and title",
             }
         },
     };
-    fprintf(stream, "Usage: ./tatr <OPTIONS>\n");
+    fprintf(stream, "Usage: %s <OPTIONS>\n", program_name);
     fprintf(stream, "OPTIONS:\n");
 
     size_t opt_len = ARRAY_LEN(descriptions);
     for (size_t i = 0; i < opt_len; ++i) {
-        fprintf(stream, "    %s\n", descriptions[i].name);
-        for (size_t j = 0; j < ARRAY_LEN((descriptions[i].description)); ++j) {
-            if (descriptions[i].description[j]) {
-                fprintf(stream, "        %s\n", descriptions[i].description[j]);
-            }
-        }
-        fprintf(stream, "\n");
+        fprintf(stream, "    %-*s- %s\n", 10, descriptions[i].name, descriptions[i].description[0]);
+        // for (size_t j = 0; j < ARRAY_LEN((descriptions[i].description)); ++j) {
+        //     if (descriptions[i].description[j]) {
+        //         fprintf(stream, "        %s\n", descriptions[i].description[j]);
+        //     }
+        // }
+        // fprintf(stream, "\n");
     }
 }
 
 void parse_options(int argc, char **argv, cmdline_opts_t *opts, char **program_name)
 {
-    // Just calling the program
-    if (argc < 2) {
-        opts->list_tasks = true;
-        return ;
-    }
-
     (*program_name) = shift(argv, argc);
+    if (argc < 1) {
+        usage(stderr, *program_name);
+        fprintf(stderr, "No command provided\n");
+        exit(1);
+    }
 
     while (argc) {
         char *flag = shift(argv, argc);
         if (strstr(flag, "--") || strstr(flag, "-")) {
             fprintf(stderr, "No '--' or '-' is needed for the tool's options\n");
-            usage(stderr);
+            usage(stderr, *program_name);
             exit(1);
         }
 
@@ -230,7 +243,7 @@ void parse_options(int argc, char **argv, cmdline_opts_t *opts, char **program_n
             assert(opts->overwrite_task != NULL && "Failed to allocated space for overwrite's task info structure");
 
             if (argc <= 0) {
-                usage(stderr);
+                usage(stderr, *program_name);
                 exit(1);
             }
 
@@ -263,7 +276,7 @@ void parse_options(int argc, char **argv, cmdline_opts_t *opts, char **program_n
     }
 
     if (opts->help) {
-        usage(stderr);
+        usage(stderr, *program_name);
         exit(0);
     }
 }

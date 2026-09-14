@@ -2,5 +2,5 @@
 
 - STATUS: CLOSED
 - PRIORITY: 30
-- TAGS: feature,query-lang
+- TAGS: query-lang,feature
 

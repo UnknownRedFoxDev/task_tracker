@@ -61,6 +61,7 @@ bool parse_tags(const char *tasks_path);
 bool change_tasks_status(tasks_t *tasks, Flag_List_Mut *tasks_uuid, task_status new_status);
 size_t find_best_alignment(task_t *tasks, u32 tasks_len);
 u32 retrieve_tasks_from_query(const tasks_t *tasks, Node_t *root, bool negated, task_t **result);
+bool render_task_md(const char *task_md_path, task_t *task);
 
 // memory management
 void free_tags(tags_t *tags);
